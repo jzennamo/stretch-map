@@ -1,0 +1,17 @@
+{
+  "name": "Muscle Stretch Map",
+  "short_name": "Stretch Map",
+  "description": "Tap muscles on a front and back body map, deep hip rotators included, to get matched stretches with looping how-to animations and a guided routine.",
+  "start_url": "./",
+  "scope": "./",
+  "id": "stretch-map",
+  "display": "standalone",
+  "background_color": "#edf0f1",
+  "theme_color": "#edf0f1",
+  "categories": ["health", "fitness"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,2058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#edf0f1">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1215">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stretch Map">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Muscle Stretch Map</title>
+<meta name="description" content="Tap muscles on a front and back body map to get stretches that target them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* Layout: anatomical-plate viewer (front + back figures) beside a working panel of muscles and ranked stretches; stacks on phones. */
+:root{
+  --bg:#edf0f1; --surface:#ffffff; --surface-2:#f5f7f7; --ink:#14212b; --muted:#5a6872; --line:#d6dcdf;
+  --body:#e2ddd8; --muscle:#d8b5ab; --muscle-hi:#e8988a;
+  --accent:#cc2d3d; --accent-hi:#a91f2e; --on-accent:#ffffff; --accent-soft:#f8e0e1;
+  --stretch:#2f66cf; --stretch-soft:#dde7fa; --ghost:#8b979e;
+  --fig:#33434e; --fig-far:#a5b0b8; --stretch-far:#96b4ea; --prop:#eef1f2; --prop-line:#b4bec4; --strap:#c68619;
+  --shadow:0 1px 2px rgba(20,33,43,.06),0 8px 24px rgba(20,33,43,.06);
+  --font-display:'Bricolage Grotesque',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Instrument Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1215; --surface:#151c21; --surface-2:#1b242a; --ink:#e5ebee; --muted:#93a1aa; --line:#29343b;
+  --body:#262f36; --muscle:#54434a; --muscle-hi:#86545a;
+  --accent:#ff5c68; --accent-hi:#ff8790; --on-accent:#1b0a0d; --accent-soft:#3b1c22;
+  --stretch:#74a0f2; --stretch-soft:#1c2a45; --ghost:#6c7a83;
+  --fig:#c8d3d9; --fig-far:#5c6a73; --stretch-far:#3f5d93; --prop:#1e272d; --prop-line:#46535b; --strap:#e2a843;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1215; --surface:#151c21; --surface-2:#1b242a; --ink:#e5ebee; --muted:#93a1aa; --line:#29343b;
+  --body:#262f36; --muscle:#54434a; --muscle-hi:#86545a;
+  --accent:#ff5c68; --accent-hi:#ff8790; --on-accent:#1b0a0d; --accent-soft:#3b1c22;
+  --stretch:#74a0f2; --stretch-soft:#1c2a45; --ghost:#6c7a83;
+  --fig:#c8d3d9; --fig-far:#5c6a73; --stretch-far:#3f5d93; --prop:#1e272d; --prop-line:#46535b; --strap:#e2a843;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:14px 40px;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--stretch);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+
+.top{max-width:1240px;margin:0 auto 12px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-size:26px;font-weight:800;line-height:1}
+.top h1 span{color:var(--accent)}
+.top p{margin:4px 0 0;color:var(--muted);font-size:14px;max-width:46ch}
+
+.app{max-width:1240px;margin:0 auto;display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){
+  .app{grid-template-columns:minmax(360px,500px) minmax(0,1fr);gap:20px;align-items:start}
+  .viewer{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+  .stage{height:calc(100dvh - 250px)!important;min-height:460px}
+}
+
+/* ---------- Viewer ---------- */
+.viewer{background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.vbar{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 2px}
+.vbar .crumb{flex:1;min-width:0;font-family:var(--font-display);font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 10px 0 6px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-weight:600;font-size:13px;white-space:nowrap}
+.iconbtn svg{width:18px;height:18px}
+.iconbtn.round{width:34px;padding:0;justify-content:center}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;flex:none}
+.seg button{height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+
+.stage{display:flex;height:clamp(380px,58svh,620px);position:relative;border-radius:14px;background:
+  radial-gradient(circle at 50% 40%, var(--surface) 0, var(--surface-2) 75%);overflow:hidden}
+.pane{flex:1 1 0;min-width:0;position:relative;transition:flex-grow .45s cubic-bezier(.65,0,.35,1),opacity .3s}
+.pane.off{flex-grow:0.0001;opacity:0;pointer-events:none}
+.pane svg{display:block;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.pane-label{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);pointer-events:none}
+.pane+.pane{border-left:1px dashed var(--line)}
+
+.readout{display:flex;align-items:center;gap:10px;min-height:46px;padding:4px 4px 2px}
+.readout .rtxt{flex:1;min-width:0}
+.readout .rname{font-family:var(--font-display);font-weight:700;font-size:16px;line-height:1.2}
+.readout .rsub{color:var(--muted);font-size:13px;line-height:1.3}
+.legend{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:10px;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 8px;border-radius:999px;background:var(--surface);opacity:.92;pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend .lg-sel{background:var(--accent)} .legend .lg-st{background:var(--stretch)}
+
+/* ---------- SVG body ---------- */
+.sil{fill:var(--body)}
+.mus{fill:var(--muscle);stroke:var(--body);stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .15s,opacity .25s,fill-opacity .2s}
+.mus.hov{fill:var(--muscle-hi)}
+.mus.on{fill:var(--accent)}
+.mus.on.hov{fill:var(--accent-hi)}
+.mus.dim{opacity:.3}
+.dec{fill:none;pointer-events:none;vector-effect:non-scaling-stroke}
+.dec.seam{stroke:var(--body);stroke-width:1.2}
+.dec.bone{stroke:var(--ghost);stroke-opacity:.35;stroke-width:1}
+/* deep muscles are hidden on the surface layer, except as dashed outlines when selected or hinted */
+.mus.deep{display:none}
+.mus.deep.on,.mus.deep.hint{display:inline;pointer-events:none;stroke-dasharray:3 2;stroke-width:1.2}
+.mus.deep.hint{fill:var(--ghost);fill-opacity:.12;stroke:var(--ghost)}
+.mus.deep.on{fill:var(--accent);fill-opacity:.35;stroke:var(--accent)}
+/* deep layer: surface muscles turn to ghost outlines */
+.layer-deep .mus:not(.deep){fill:var(--body);stroke:var(--ghost);stroke-opacity:.45;stroke-dasharray:2 2;pointer-events:none}
+.layer-deep .mus:not(.deep).on{fill:var(--accent);fill-opacity:.22;stroke:var(--accent)}
+.layer-deep .mus.deep{display:inline;pointer-events:auto;fill:var(--muscle);fill-opacity:1;stroke:var(--body);stroke-dasharray:none;stroke-width:1}
+.layer-deep .mus.deep.hov{fill:var(--muscle-hi)}
+.layer-deep .mus.deep.on{fill:var(--accent)}
+.layer-deep .mus.deep.on.hov{fill:var(--accent-hi)}
+/* stand-in spots (where you can reach it, not the muscle itself) */
+.layer-deep .mus.deep.proxy{fill-opacity:.55;stroke:var(--ink);stroke-dasharray:1 1.6;stroke-width:1.1}
+.layer-deep .mus.deep.proxy.on{fill-opacity:.6}
+/* stretch preview */
+.previewing .mus{opacity:.25}
+.previewing .mus.pv1,.previewing .mus.pv2{opacity:1;fill:var(--stretch);fill-opacity:1;stroke:var(--body);stroke-dasharray:none}
+.previewing .mus.pv2{fill-opacity:.45}
+.previewing .mus.deep.pv1,.previewing .mus.deep.pv2{display:inline;stroke:var(--stretch);stroke-dasharray:3 2}
+.mk{cursor:pointer}
+.mk circle{fill:var(--surface);stroke:var(--ink);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.mk text{fill:var(--ink);font-family:var(--font-body);font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.mk.on circle{fill:var(--accent);stroke:var(--accent)}
+.mk.on text{fill:var(--on-accent)}
+.mk.hov circle{stroke-width:2.4}
+.previewing .mk{opacity:.25}
+
+/* ---------- Panel ---------- */
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.bhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.bhead h2{font-size:18px;font-weight:700}
+.bhead .note{color:var(--muted);font-size:13px}
+.tlegend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 12px;font-size:12px;color:var(--muted)}
+.tlegend span{display:inline-flex;align-items:center;gap:6px}
+.tlegend i{display:inline-block;width:12px;height:10px;border-radius:3px}
+.tlegend i.dash{border:1.5px dashed var(--prop-line);background:var(--prop);height:9px}
+
+.search{position:relative;display:block}
+.search input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;padding:0 14px 0 40px}
+.search input::placeholder{color:var(--muted)}
+.search svg{position:absolute;left:12px;top:12px;width:20px;height:20px;color:var(--muted);pointer-events:none}
+.results{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.results:empty{display:none}
+
+.glist,.mlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+@media (min-width:560px){.glist{grid-template-columns:1fr 1fr}}
+.grow{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow:hidden;min-width:0}
+.gtoggle{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;text-align:left;min-height:46px}
+.gname{flex:1;min-width:0;font-weight:600}
+.gcount{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.box{width:20px;height:20px;border-radius:6px;border:2px solid var(--ghost);flex:none;display:grid;place-items:center;transition:background .15s,border-color .15s}
+.box svg{width:14px;height:14px;opacity:0;color:var(--on-accent)}
+.box.full{background:var(--accent);border-color:var(--accent)} .box.full svg{opacity:1}
+.box.part{border-color:var(--accent);background:linear-gradient(var(--accent),var(--accent)) center/10px 2.5px no-repeat}
+.gexplore{display:flex;align-items:center;gap:2px;padding:0 10px 0 12px;border-left:1px solid var(--line);font-size:13px;font-weight:600;color:var(--stretch)}
+.gexplore svg{width:16px;height:16px}
+.grow:hover{border-color:var(--ghost)}
+
+.ghead{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.ghead .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ghead h2{font-size:22px;font-weight:800;flex:1;min-width:0}
+.ghead .spacer{flex:1}
+.ghead .note{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.btn{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-weight:600;font-size:13px;white-space:nowrap}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.accent{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+
+.mrow{width:100%;display:flex;align-items:flex-start;gap:10px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);transition:border-color .15s,background .15s}
+.mrow:hover,.mrow.hov{border-color:var(--ghost)}
+.mrow[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.num{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+.mrow[aria-pressed="true"] .num{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.num.deep{border-style:dashed}
+.mtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mname{font-weight:650;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mdesc{font-size:13px;color:var(--muted);line-height:1.35}
+.mnote{font-size:12px;color:var(--muted);font-style:italic;line-height:1.35;padding-left:8px;border-left:2px dotted var(--ghost)}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:999px;border:1px dashed var(--ghost);color:var(--muted)}
+.check{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--ghost);display:grid;place-items:center;margin-top:1px}
+.check svg{width:13px;height:13px;opacity:0;color:var(--on-accent)}
+.mrow[aria-pressed="true"] .check{background:var(--accent);border-color:var(--accent)}
+.mrow[aria-pressed="true"] .check svg{opacity:1}
+.deepnote{margin:10px 0 0;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.deepnote button{color:var(--stretch);font-weight:600}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 12px;border-radius:999px;background:var(--accent-soft);border:1px solid transparent;font-size:13px;font-weight:600}
+.chip svg{width:16px;height:16px;opacity:.7}
+.chip:hover{border-color:var(--accent)}
+.presets{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.preset{text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2)}
+.preset b{display:block;font-weight:650}
+.preset span{font-size:12.5px;color:var(--muted)}
+.preset:hover{border-color:var(--ghost)}
+.empty{color:var(--muted);margin:0 0 10px;font-size:14px}
+.qp{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.qp .note{color:var(--muted);font-size:12.5px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 11px;border-radius:999px;border:1px dashed var(--ghost);font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface)}
+.pchip svg{width:13px;height:13px}
+.pchip[aria-pressed="true"]{border-style:solid;border-color:var(--accent);background:var(--accent-soft)}
+.pchip:hover{border-color:var(--ink)}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toggle{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-size:13px;font-weight:600}
+.toggle[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+.routine-cta{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--ink);color:var(--surface);margin-bottom:12px;flex-wrap:wrap}
+.routine-cta .t{flex:1;min-width:180px}
+.routine-cta b{font-family:var(--font-display);font-size:16px;display:block}
+.routine-cta span{font-size:13px;opacity:.8}
+.routine-cta .btn{background:var(--accent);color:var(--on-accent);border-color:var(--accent);height:40px;padding:0 18px}
+
+.slist{display:grid;gap:10px}
+@media (min-width:1180px){.slist{grid-template-columns:1fr 1fr;align-items:start}}
+.st{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0;transition:border-color .15s}
+.st:hover,.st.pv{border-color:var(--stretch)}
+.st-top{display:flex;gap:12px;align-items:flex-start}
+.toonbox{--toon-bg:var(--surface-2);position:relative;display:block;width:100%;background:var(--surface-2);border-radius:10px;height:150px;padding:4px;overflow:hidden;cursor:pointer}
+.toonbox:hover .tplay{transform:scale(1.06)}
+.tplay{position:absolute;right:8px;bottom:8px;width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--surface);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:transform .15s}
+.tplay svg{width:14px;height:14px;grid-area:1/1}
+.tplay .pz{display:none}
+.toonbox.playing .tplay svg:first-child{display:none}
+.toonbox.playing .tplay .pz{display:block}
+.tphase{position:absolute;left:8px;top:8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface);color:var(--muted);opacity:0;transition:opacity .2s}
+.toonbox.playing .tphase{opacity:1}
+@media (min-width:900px){.toonbox{height:170px}}
+.toon{display:block;width:100%;height:100%}
+.toon .fg,.toon .hl{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.toon .fg{stroke:var(--fig)} .toon .fg.far{stroke:var(--fig-far)}
+.toon .hl{stroke:var(--stretch)} .toon .hl.far{stroke:var(--stretch-far)}
+.toon .fg.fill{fill:var(--fig)} .toon .hl.fill{fill:var(--stretch)}
+.toon .headc{fill:var(--fig)}
+.toon .hlb{fill:var(--stretch)} .toon .hlb.far{fill:var(--stretch-far)}
+.toon .prop{fill:var(--prop);stroke:var(--prop-line);stroke-width:1.2}
+.toon .prop.soft{opacity:.55}
+.toon .pline{stroke:var(--prop-line);stroke-width:2.2;fill:none;stroke-linecap:round}
+.toon .pline.thick{stroke-width:3.4}
+.toon .floor{stroke:var(--prop-line);stroke-width:1.6}
+.toon .strap{stroke:var(--strap);stroke-width:2;fill:none;stroke-linecap:round}
+.toon .strap.towel{stroke-width:4.2;stroke-linecap:butt}
+.toon .halo{stroke:var(--toon-bg,#f5f7f7);fill:none;stroke-linecap:round;stroke-linejoin:round}
+.toon .haloF{fill:var(--toon-bg,#f5f7f7)}
+.toon .eye{fill:var(--toon-bg,#f5f7f7)}
+.toon .capbg{fill:var(--toon-bg,#f5f7f7);stroke:var(--prop-line);stroke-width:.6}
+.toon .capt{fill:var(--fig);font-weight:700;text-anchor:middle;dominant-baseline:central;font-family:var(--font-body,sans-serif)}
+.toon .pline.jamb{stroke-width:4.5;stroke:var(--prop-line)}
+.toon .arrow{stroke:var(--muted);stroke-width:1.3;fill:none;stroke-dasharray:3 2}
+.toon .mat{fill:var(--prop);stroke:var(--prop-line);stroke-width:1;stroke-dasharray:3 2}
+
+.thumbs{display:flex;gap:2px;flex:none;background:var(--surface-2);border-radius:10px;padding:4px 3px}
+.thumbs svg{width:30px;height:72px;display:block}
+.thumbs .ts{fill:var(--body)}
+.thumbs .t1{fill:var(--stretch)} .thumbs .t2{fill:var(--stretch);fill-opacity:.4}
+.st-head{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.st h3{font-size:16.5px;font-weight:700;line-height:1.2}
+.meta{font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;font-variant-numeric:tabular-nums}
+.meta .lv{display:inline-flex;gap:2px;align-items:center}
+.meta .lv i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block}
+.meta .lv i.f{background:var(--ink)}
+.match{font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap}
+.tchips{display:flex;flex-wrap:wrap;gap:4px}
+.tchip{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--stretch-soft);color:var(--ink);line-height:1.5}
+.tchip.sec{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.tchip.hit{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.tchip.sec.hit{background:var(--accent-soft);color:var(--ink);border-color:var(--accent)}
+details{border-top:1px solid var(--line);padding-top:8px}
+summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--stretch);list-style:none;display:flex;align-items:center;gap:6px}
+summary::-webkit-details-marker{display:none}
+summary svg{width:16px;height:16px;transition:transform .2s}
+details[open] summary svg{transform:rotate(90deg)}
+details ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px;font-size:14px}
+.feel,.care{font-size:13px;margin:4px 0 0;color:var(--muted)}
+.feel b,.care b{color:var(--ink)}
+.care b{color:var(--accent)}
+.st-actions{display:flex;justify-content:flex-end;gap:8px}
+.play{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600}
+.play svg{width:14px;height:14px}
+.play:hover{border-color:var(--ink)}
+.disclaimer{color:var(--muted);font-size:12.5px;max-width:70ch;margin:4px 2px 0}
+
+.jump{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;height:44px;padding:0 18px;border-radius:999px;background:var(--ink);color:var(--surface);font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.jump svg{width:16px;height:16px}
+
+/* ---------- Routine ---------- */
+.rt{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.rt-top{display:flex;align-items:center;gap:12px;max-width:640px;width:100%;margin:0 auto}
+.rt-count{font-weight:700;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.rt-bar{flex:1;display:flex;gap:3px}
+.rt-bar i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.rt-bar i.done{background:var(--ink)} .rt-bar i.cur{background:var(--accent)}
+.rt-main{flex:1;overflow:auto;max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0 10px;text-align:center}
+.rt-side{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--ink)}
+.rt-main h2{font-size:26px;font-weight:800;line-height:1.1}
+.rt-vis{display:flex;align-items:center;gap:14px;justify-content:center;width:100%;max-width:560px}
+.rt-toon{--toon-bg:var(--surface);flex:1.7 1 0;min-width:0;aspect-ratio:160/106;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px}
+.rt-toon.mirror .toon{transform:scaleX(-1)}
+.thumbs.big{padding:8px 6px;gap:4px;border-radius:14px}
+.thumbs.big svg{width:40px;height:96px}
+.rt-ring{position:relative;flex:1 1 0;max-width:190px;aspect-ratio:1}
+.rt-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.rt-ring .trk{fill:none;stroke:var(--line);stroke-width:8}
+.rt-ring .prog{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .12s linear}
+.rt-ring.prep .prog{stroke:var(--ghost)}
+.rt-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.rt-num span{font-family:var(--font-display);font-weight:800;font-size:clamp(34px,10vw,56px);line-height:1;font-variant-numeric:tabular-nums}
+.rt-num small{text-align:center;line-height:1.2}
+.rt-num small{font-size:13px;color:var(--muted);font-weight:600;margin-top:4px}
+.rt-steps{text-align:left;margin:4px 0 0;padding-left:22px;display:grid;gap:4px;font-size:15px;max-width:52ch}
+.rt-feel{font-size:13.5px;color:var(--muted);margin:0;max-width:52ch}
+.rt-ctl{display:flex;gap:10px;justify-content:center;max-width:640px;width:100%;margin:0 auto}
+.rt-ctl .btn{height:48px;padding:0 20px;font-size:15px;flex:1;max-width:180px}
+.rt-done{display:flex;flex-direction:column;align-items:center;gap:10px}
+.rt-done p{color:var(--muted);margin:0}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<style>body{padding-top:calc(14px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}</style>
+</head>
+<body>
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs id="sprite"><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 1L9 5L0 9z" style="fill:var(--muted)"/></marker></defs></svg>
+
+<header class="top">
+  <div>
+    <h1>Stretch Map</h1>
+    <p>Tap a muscle group to zoom in, then pick the exact muscles. Stretches rank themselves as you go.</p>
+  </div>
+</header>
+
+<main class="app">
+  <section class="viewer" aria-label="Body map">
+    <div class="vbar">
+      <button class="iconbtn round" id="backBtn" hidden aria-label="Back to whole body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="crumb" id="crumb">Whole body</div>
+      <div class="seg" role="group" aria-label="Muscle layer">
+        <button id="layer-surface" aria-pressed="true">Surface</button>
+        <button id="layer-deep" aria-pressed="false">Deep</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="legend" id="legend"><span><i class="lg-sel"></i>Targeted</span><span><i class="lg-st"></i>Stretched</span></div>
+      <div class="pane" id="pane-f"><svg id="svg-f" role="img" aria-label="Front of the body"></svg><span class="pane-label">Front</span></div>
+      <div class="pane" id="pane-b"><svg id="svg-b" role="img" aria-label="Back of the body"></svg><span class="pane-label">Back</span></div>
+    </div>
+    <div class="readout" aria-live="polite">
+      <div class="rtxt"><div class="rname" id="rname">Whole body</div><div class="rsub" id="rsub">Tap a muscle group to zoom in.</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="block">
+      <label class="search" for="q">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Find a muscle, e.g. piriformis" autocomplete="off">
+      </label>
+      <div class="results" id="results"></div>
+    </div>
+    <div class="block" id="nav"></div>
+    <div class="block" id="selection"></div>
+    <div class="block" id="stretches"></div>
+    <p class="disclaimer">Stretch to a mild, comfortable pull and breathe. No bouncing. Stop if you feel sharp pain, numbness or tingling, and check with a clinician about injuries. Steps describe the right side; mirror them for the left.</p>
+  </section>
+</main>
+
+<button class="jump" id="jump" hidden></button>
+
+<div class="rt" id="rt" hidden role="dialog" aria-modal="true" aria-labelledby="rt-name">
+  <div class="rt-top">
+    <span class="rt-count" id="rt-count">1 / 1</span>
+    <div class="rt-bar" id="rt-bar"></div>
+    <button class="btn" id="rt-close">Close</button>
+  </div>
+  <div class="rt-main" id="rt-main"></div>
+  <div class="rt-ctl" id="rt-ctl">
+    <button class="btn" id="rt-prev">Back</button>
+    <button class="btn primary" id="rt-play">Pause</button>
+    <button class="btn" id="rt-next">Skip</button>
+  </div>
+</div>
+
+<script>
+// Right-half geometry (x >= 99); mirrored around x=100 at render time.
+const SIL = "M99,54 L107,54 C108,64 110,72 115,77 C125,82 140,84 150,88 C161,91 166,102 166,116 C167,135 171,160 175,186 C179,200 182,216 182,232 C182,245 183,254 183,262 C189,272 191,290 187,304 C185,311 176,312 174,303 C172,292 168,280 169,266 C166,242 160,216 155,196 C150,180 146,160 144,140 C143,130 141,123 139,118 C137,140 134,165 131,186 C131,198 134,206 136,214 C140,226 143,238 143,252 C143,276 140,300 132,322 C129,330 128,338 129,346 C134,362 134,384 128,404 C126,412 124,418 123,424 C127,433 131,442 129,448 C122,452 110,453 106,449 C104,440 106,432 107,424 C104,408 101,386 102,366 C103,356 105,350 106,344 C106,336 106,330 105,322 C103,298 101,272 100,246 L99,246 Z";
+
+// v: f=front, b=back. deep: shown on the deep layer.
+const SHAPES = [
+ // ---------- FRONT ----------
+ {m:'gracilis', v:'f', d:"M101,248 L104,246 C105,270 107,296 108,322 L105,326 C104,300 102,274 101,248 Z"},
+ {m:'add_longus', v:'f', d:"M104,242 C109,238 114,236 119,238 C117,252 114,268 110,284 L106,282 C105,268 104,254 104,242 Z"},
+ {m:'pectineus', v:'f', d:"M115,231 C119,230 123,231 126,233 C124,239 122,243 120,246 L115,240 Z"},
+ {m:'vastus_lat', v:'f', d:"M140,262 C143,272 143,286 140,300 C137,312 132,320 127,326 L123,321 C129,312 134,300 136,284 C137,274 138,266 140,262 Z"},
+ {m:'rectus_fem', v:'f', d:"M133,234 C137,246 138,264 136,284 C134,300 128,312 121,320 L116,320 C114,308 114,294 116,280 C119,264 126,246 133,234 Z"},
+ {m:'vastus_med', v:'f', d:"M116,284 C119,294 120,306 119,318 L115,322 C111,320 109,314 109,306 C110,298 112,290 116,284 Z"},
+ {m:'tfl', v:'f', d:"M133,216 C138,218 142,228 143,240 C143,250 142,258 141,264 L137,260 C136,246 134,230 133,216 Z"},
+ {m:'sartorius', v:'f', d:"M129,217 L134,219 C130,250 120,284 111,316 C110,323 109,329 109,335 L105,333 C105,323 106,313 107,306 C114,276 123,248 129,217 Z"},
+ {m:'obliques', v:'f', d:"M116,147 C122,149 129,153 135.5,158 C134,172 132,182 131.5,190 C132.5,200 134,207 135,213 C127,220 120,227 115,233 C118,206 119,176 116,147 Z"},
+ {m:'rectus_abd', v:'f', d:"M101,145 L114,143 C116,166 116,196 113,226 C110,233 106,237 101,239 Z"},
+ {m:'serratus', v:'f', d:"M124,139 C129,135 133,131 138,128 L137,142 L135.5,156 C132,155 129,153 126,150 L131,147 L124,144 Z"},
+ {m:'pec_major', v:'f', d:"M101,90 C112,87 124,88 131,92 C135,98 140,104 144,110 C143,117 141,122 138,126 C130,137 116,143 101,143 Z"},
+ {m:'scm', v:'f', d:"M111,55 C112,63 108,74 103,84 L100,84 C101,75 105,64 107,56 Z"},
+ {m:'upper_trap', v:'f', d:"M109,62 C111,71 118,78 128,82 C137,85 144,86 150,89 L146,90 C138,89 130,88 122,86 C116,82 112,76 110,70 Z"},
+ {m:'biceps', v:'f', d:"M147,128 C150,122 158,123 161,133 C165,150 166,168 163,184 C160,189 156,189 154,185 C150,170 147,150 147,128 Z"},
+ {m:'brachialis', v:'f', d:"M163,138 C168,150 170,166 170,182 L165,185 C167,168 166,152 163,138 Z"},
+ {m:'ant_delt', v:'f', d:"M132,90 C140,86 147,87 151,92 L154,136 C150,128 147,120 145,112 C141,104 137,97 132,92 Z"},
+ {m:'lat_delt', v:'f', d:"M151,92 C159,94 165,104 165,116 C165,126 160,134 155,139 L154,136 Z"},
+ {m:'wrist_flexors', v:'f', d:"M155,194 C160,189 166,192 169,200 C172,216 175,240 176,259 L171,262 C167,246 161,224 157,206 C156,201 155,197 155,194 Z"},
+ {m:'brachioradialis', v:'f', d:"M168,170 C175,178 181,194 182,212 C183,230 181,246 180,258 L176,259 C175,242 173,222 170,206 C167,193 166,182 168,170 Z"},
+ {m:'gastroc', v:'f', d:"M106,346 C103,356 102,370 103,384 L108,386 C107,372 107,358 108,346 Z"},
+ {m:'soleus', v:'f', d:"M103,388 C104,400 106,410 108,418 L110,416 C109,406 108,396 108,388 Z"},
+ {m:'tib_ant', v:'f', d:"M120,346 C122.5,350 123,362 122.5,376 C121,394 118,408 114,422 L111,421 C113,406 115,392 116,378 C116,364 117,353 120,346 Z"},
+ {m:'toe_ext', v:'f', d:"M124.2,350 C125.7,358 126.1,370 125.9,384 C125.6,398 124,410 120.8,422 L118.6,421.5 C121,410 122.7,398 123.1,384 C123.5,370 123.6,358 124.2,350 Z"},
+ {m:'peroneals', v:'f', d:"M127.5,348 C131,358 132,372 131,386 C130,398 127.5,410 125,420 L122.8,419.5 C125,408 126.6,396 127,382 C127.4,370 127.5,358 127.5,348 Z"},
+ // front deep
+ {m:'scalenes', v:'f', deep:1, d:"M106,64 C109,70 112,78 116,86 L106,86 C106,78 106,70 106,64 Z"},
+ {m:'pec_minor', v:'f', deep:1, d:"M134,97 C137,98 138,101 137,104 C134,116 131,128 128,139 C122,137 116,133 112,128 C120,118 127,107 134,97 Z"},
+ {m:'subscap', v:'f', deep:1, proxy:1, d:"M134,100 C140,104 144,111 144,121 L138,124 C137,116 136,108 134,100 Z"},
+ {m:'iliopsoas', v:'f', deep:1, d:"M102,158 C104.5,158 106.5,160 107.5,164 C110,182 113,200 117,214 C119.5,223 121,233 121,244 L119.5,251 L114.5,250 C114.5,240 113.5,230 111.5,221 C108.5,206 105.5,186 103.2,170 C102.6,165 102.2,161 102,158 Z"},
+ {m:'iliopsoas', v:'f', deep:1, d:"M113,197 C118.5,193 126,192.5 132,197 C133,204 132,210 129.5,216 C126.5,222 123.5,228 121.5,236 L117.5,238 C116.5,228 114.8,218 113,208 Z"},
+ {m:'foot_arch', v:'f', deep:1, proxy:1, d:"M109,430 C114,428 120,428 124,431 C126,437 127,442 126,446 C120,448 113,448 109,446 C108,440 108,434 109,430 Z"},
+ {m:'vastus_int', v:'f', deep:1, d:"M128,248 C132,258 133,272 131,290 C129,304 124,312 119,315 C117,302 117,286 119,270 C121,260 124,252 128,248 Z"},
+ // ---------- BACK ----------
+ {m:'erectors', v:'b', d:"M101,138 C106,138 110,140 113,144 C116,168 118,198 116,232 C112,238 106,240 101,240 Z"},
+ {m:'lats', v:'b', d:"M114,146 C119,147 124,148 129,149 C134,146 137,139 139,124 C138,146 136,168 133,188 C133.5,196 134.5,203 135,209 C128,208 122,206 117,204 C118,185 117,166 114,146 Z"},
+ {m:'upper_trap', v:'b', d:"M101,52 L106,53 C108,64 113,74 124,80 C135,84 144,86 150,90 C146,94 141,96 136,97 C124,96 112,95 101,96 Z"},
+ {m:'mid_trap', v:'b', d:"M101,96 C112,95 124,96 136,97 C132,102 127,107 121,112 C114,116 107,120 101,122 Z"},
+ {m:'lower_trap', v:'b', d:"M101,122 C107,120 114,116 121,112 C119,136 111,162 101,186 Z"},
+ {m:'infraspinatus', v:'b', d:"M122,112 C128,107 134,103 139,101 C140,106 139,111 137,115 C133,122 129,130 125,137 C123,130 122,121 122,112 Z"},
+ {m:'teres_minor', v:'b', d:"M139,101 C141,103 143,107 143,111 C140,119 135,128 129,135 L126,138 C129,130 133,122 137,115 C139,111 140,106 139,101 Z"},
+ {m:'teres_major', v:'b', d:"M126,141 C132,136 138,128 143,114 C145,118 144,123 142,127 C138,135 133,142 129,147 C127,146 126,144 126,141 Z"},
+ {m:'triceps_long', v:'b', d:"M145,130 C148,126 152,126 155,130 L158,168 C158,177 157,183 155,188 C151,184 149,176 148,166 C146,155 145,142 145,130 Z"},
+ {m:'triceps_lat', v:'b', d:"M156,134 C160,128 165,130 166,138 C168,152 170,166 168,178 L159,178 C159,163 158,148 156,134 Z"},
+ {m:'post_delt', v:'b', d:"M137,98 C142,95 146,93 150,90 C156,95 159,105 159,117 C158,126 157,133 155,138 C150,126 145,114 140,106 Z"},
+ {m:'lat_delt', v:'b', d:"M150,90 C158,92 165,102 166,116 C166,126 161,134 156,140 L155,138 C157,133 158,126 159,117 C159,105 156,95 150,90 Z"},
+ {m:'wrist_extensors', v:'b', d:"M156,195 C162,190 170,192 175,198 C179,214 181,238 181,258 L172,261 C169,240 163,216 157,202 Z"},
+ {m:'brachioradialis', v:'b', d:"M174,185 C179,194 182,208 182,224 L178,226 C177,212 175,200 171,190 Z"},
+ {m:'glute_med', v:'b', d:"M117,206 C125,204 134,205 138,209 C141,217 143,227 142,236 C134,231 125,227 117,224 Z"},
+ {m:'glute_max', v:'b', d:"M101,236 C103,226 110,219 118,218 C128,218 136,224 141,234 C144,245 143,256 138,264 C130,270 116,272 104,268 C102,262 101,250 101,236 Z"},
+ {m:'add_magnus', v:'b', d:"M102,268 C104,266 106,266 108,268 C108,280 108,292 107,304 C105,296 103,284 102,268 Z"},
+ {m:'semimem', v:'b', d:"M108,272 C110,270 112,270 113,271 C113,286 113,300 113,312 C112,324 111,332 109,338 L106,336 C106,322 106,306 107,296 Z"},
+ {m:'semitend', v:'b', d:"M113,268 C116,266 118,266 120,268 C121,283 123,297 123,311 C121,323 117,333 113,341 L110,339 C112,327 113,315 113,303 Z"},
+ {m:'biceps_fem', v:'b', d:"M120,266 C126,266 130,270 133,276 C137,292 137,308 132,324 C131,331 130,337 129,343 L125,343 C125,331 125,319 124,307 C122,292 120,278 120,266 Z"},
+ {m:'vastus_lat', v:'b', d:"M136,266 C141,272 143,286 141,300 C139,312 135,320 131,326 L133,318 C137,306 137,290 134,276 Z"},
+ {m:'soleus', v:'b', d:"M104,380 C106,392 110,400 118,401 C125,400 129,394 131,384 C132,398 128,412 124,420 L110,420 C107,410 104,396 104,380 Z"},
+ {m:'gastroc', v:'b', d:"M119,346 C125,343 130,347 132,355 C134,368 132,382 126,394 C123,398 120,398 119,394 C118,380 118,360 119,346 Z"},
+ {m:'gastroc', v:'b', d:"M108,346 C112,343 116,344 118,346 C118,362 118,380 118,396 C114,400 109,396 107,390 C104,377 104,360 108,346 Z"},
+ // back deep
+ {m:'levator', v:'b', deep:1, d:"M107.5,54 C110.5,62 112.5,72 115,82 C117,90 119,96 120.5,102 L116.5,103 C114.5,95 111.5,87 109,79 C107.5,72 106.6,63 107.5,54 Z"},
+ {m:'splenius', v:'b', deep:1, d:"M101,62 C102.5,57 104.5,52 106,47.5 L112,49 C110.5,58 108,69 105.5,79 C104,86 102.5,92 101,98 Z"},
+ {m:'suboccipitals', v:'b', deep:1, d:"M101,52.6 C104,52.1 107,51.9 109.6,52.3 L109.2,58.8 C106.3,58.5 103.6,58.7 101,59.4 Z"},
+ {m:'subscap', v:'b', deep:1, d:"M119.5,103 C126,100.5 133,99 139.5,99.5 C141.5,103 142,107 141,111 C139,119 135,128 130,137 C128,141 126,144 124,146 C122,140 120.5,131 119.8,122 C119.4,115 119.3,109 119.5,103 Z"},
+ {m:'supraspinatus', v:'b', deep:1, d:"M116,100 C126,95 137,92 147,90 L146,95 C136,98 126,102 119,107 Z"},
+ {m:'rhomboids', v:'b', deep:1, d:"M101,98 L113,101 L122,138 L101,130 Z"},
+ {m:'ql', v:'b', deep:1, d:"M104,186.5 C109.5,185.5 114.5,185.8 118.5,187 C120,195 121.6,203 123.6,211.5 C117.5,213 110.5,213.2 104.8,212.5 C104.4,203.5 104.1,195 104,186.5 Z"},
+ {m:'glute_min', v:'b', deep:1, d:"M119,210 C127,208 135,210 139,216 L141,229 C133,226 125,222 119,218 Z"},
+ {m:'piriformis', v:'b', deep:1, d:"M106,228 C116,228 128,230 140,234 L140,239 C128,239 116,239 106,237 Z"},
+ {m:'sup_gem', v:'b', deep:1, lx:.14, d:"M110,240.6 C120,240.6 130,241 139,241.4 L139,243.4 C130,243.2 120,243.1 110,243.2 Z"},
+ {m:'obt_int', v:'b', deep:1, lx:.46, d:"M107,244 C118,244 129,244.3 139,244.4 L139,247.3 C129,247.3 118,247.4 107,247.5 Z"},
+ {m:'inf_gem', v:'b', deep:1, lx:.8, d:"M110,248.3 C120,248.2 130,248.3 139,248.3 L139,250.4 C130,250.5 120,250.7 110,251 Z"},
+ {m:'obt_ext', v:'b', deep:1, lp:[125.5, 253.7], d:"M109,255.6 C118,254.6 129,252.7 139,250.9 L139,254.4 C129,255.8 118,257.9 109,259.6 Z"},
+ {m:'quad_fem', v:'b', deep:1, lx:.3, d:"M112,254.8 C121,254.6 130,254.6 139,254.8 L139,261 C130,261.3 121,261.6 112,262 Z"},
+ {m:'fdl', v:'b', deep:1, d:"M105.4,370 C107.3,369 109.3,369 110.8,370.5 L110.6,407 C110,412.5 109.4,417 109,421 L106.8,421 C106.5,411 106,393 105.4,370 Z"},
+ {m:'fhl', v:'b', deep:1, d:"M120.3,366 C123.3,365.6 126.3,367.5 127.4,372 L125.6,402 C124.2,409 121.2,415 117.6,420.5 L115,419.6 C117.6,413 119.7,406 120.6,398 Z"},
+ {m:'tib_post', v:'b', deep:1, d:"M110,358 C113,356 117,356 119,358 L118,410 C116,412 114,412 112,410 Z"},
+ {m:'foot_arch', v:'b', deep:1, d:"M108.5,446.2 C113.5,447.6 120.5,447.6 125.5,446.2 L125.3,449.6 C120.4,451 113.6,451 108.7,449.6 Z"},
+];
+const DECOR = {
+ f: [{d:"M101,165 L115.6,164",k:"seam"},{d:"M101,186 L116,185",k:"seam"},{d:"M101,206 L115.2,205",k:"seam"},
+     {d:"M117,323 C121,323 123,327 123,331 C123,336 120,339 117,339 C114,339 111,336 111,331 C111,327 113,323 117,323 Z",k:"bone"}],
+ b: [{d:"M113,420 L120,420 L119.5,430 L113.5,430 Z",k:"bone"}]
+};
+
+// ---------- Groups (head to toe) ----------
+const GROUPS = [
+ {id:'neck', name:'Neck', views:['f','b']},
+ {id:'shoulders', name:'Shoulders', views:['f','b']},
+ {id:'chest', name:'Chest', views:['f']},
+ {id:'arms', name:'Arms', views:['f','b']},
+ {id:'upperback', name:'Upper back', views:['b']},
+ {id:'core', name:'Core', views:['f']},
+ {id:'lowerback', name:'Lower back', views:['b']},
+ {id:'hips', name:'Hips & glutes', views:['f','b']},
+ {id:'quads', name:'Front thigh', views:['f']},
+ {id:'adductors', name:'Inner thigh', views:['f','b']},
+ {id:'hamstrings', name:'Hamstrings', views:['b']},
+ {id:'lowerleg', name:'Lower leg & foot', views:['f','b']},
+];
+
+// ---------- Muscles ----------
+// deep: sits under other muscles; drawn on the Deep layer.
+const MUSCLES = [
+ {id:'scm', g:'neck', name:'Sternocleidomastoid', d:'Front-side of the neck, behind the ear to the collarbone. Turns and tilts the head.'},
+ {id:'upper_trap', g:'neck', name:'Upper trapezius', d:'Top of the shoulders up to the skull. Shrugs the shoulders and tilts the head.'},
+ {id:'scalenes', g:'neck', deep:1, name:'Scalenes', d:'Side of the neck under the SCM. Tilt the neck and lift the top ribs when you breathe hard.'},
+ {id:'levator', g:'neck', deep:1, name:'Levator scapulae', d:'Back-side of the neck to the top of the shoulder blade. A classic knot spot.'},
+ {id:'suboccipitals', g:'neck', deep:1, name:'Suboccipitals', d:'Small muscles at the base of the skull. Nod and tilt the head; a common source of tension headaches.'},
+ {id:'splenius', g:'neck', deep:1, name:'Splenius capitis', d:'Under the traps, running from the upper-back spine up and out to behind the ear. Extends and turns the head.'},
+
+ {id:'ant_delt', g:'shoulders', name:'Front deltoid', d:'Front of the shoulder cap. Raises the arm forward; works hard in pressing.'},
+ {id:'lat_delt', g:'shoulders', name:'Side deltoid', d:'Outer shoulder cap. Lifts the arm out to the side.'},
+ {id:'post_delt', g:'shoulders', name:'Rear deltoid', d:'Back of the shoulder cap. Pulls the arm back; works in rows.'},
+ {id:'infraspinatus', g:'shoulders', name:'Infraspinatus', d:'Back of the shoulder blade. Rotates the arm outward (rotator cuff).'},
+ {id:'teres_minor', g:'shoulders', name:'Teres minor', d:'Outer edge of the shoulder blade. Rotates the arm outward (rotator cuff).'},
+ {id:'supraspinatus', g:'shoulders', deep:1, name:'Supraspinatus', d:'Top of the shoulder blade under the traps. Starts lifting the arm out to the side (rotator cuff).'},
+ {id:'subscap', g:'shoulders', deep:1, name:'Subscapularis', d:'Covers the rib side of the shoulder blade (drawn on the back view). Rotates the arm inward (rotator cuff).', note:'The front-view spot is the armpit, where you can reach its tendon.'},
+
+ {id:'pec_major', g:'chest', name:'Pectoralis major', d:'The main chest muscle. Pulls the arm across the body and presses forward.'},
+ {id:'serratus', g:'chest', name:'Serratus anterior', d:'Side ribs under the armpit. Holds the shoulder blade to the ribcage and reaches forward.'},
+ {id:'pec_minor', g:'chest', deep:1, name:'Pectoralis minor', d:'Under the pec major. Tips the shoulder blade forward; often tight from slouching.'},
+
+ {id:'biceps', g:'arms', name:'Biceps', d:'Front of the upper arm. Bends the elbow and turns the palm up.'},
+ {id:'brachialis', g:'arms', name:'Brachialis', d:'Under the biceps near the elbow. A pure elbow bender.'},
+ {id:'triceps_long', g:'arms', name:'Triceps, long head', d:'Back of the upper arm, inner side. Straightens the elbow and pulls the arm down from overhead.'},
+ {id:'triceps_lat', g:'arms', name:'Triceps, lateral head', d:'Back of the upper arm, outer side. Straightens the elbow.'},
+ {id:'brachioradialis', g:'arms', name:'Brachioradialis', d:'Thumb side of the forearm. Bends the elbow with the thumb up.'},
+ {id:'wrist_flexors', g:'arms', name:'Wrist & finger flexors', d:'Palm side of the forearm. Grip, and bend the wrist forward.'},
+ {id:'wrist_extensors', g:'arms', name:'Wrist & finger extensors', d:'Back of the forearm. Lift the wrist and fingers; the tennis-elbow muscles.'},
+
+ {id:'mid_trap', g:'upperback', name:'Middle trapezius', d:'Between the shoulder blades. Squeezes the blades together.'},
+ {id:'lower_trap', g:'upperback', name:'Lower trapezius', d:'Mid-back below the shoulder blades. Draws the blades down and back.'},
+ {id:'lats', g:'upperback', name:'Latissimus dorsi', d:'The wide wings from the low back to the armpit. Pull the arm down and back.'},
+ {id:'teres_major', g:'upperback', name:'Teres major', d:'Lower corner of the shoulder blade to the upper arm. Helps the lats pull down.'},
+ {id:'rhomboids', g:'upperback', deep:1, name:'Rhomboids', d:'Under the traps between the blades. Pull the blades toward the spine.'},
+
+ {id:'rectus_abd', g:'core', name:'Rectus abdominis', d:'The six-pack down the front. Curls the trunk forward.'},
+ {id:'obliques', g:'core', name:'Obliques', d:'Sides of the waist, external and internal. Twist and side-bend the trunk.'},
+
+ {id:'erectors', g:'lowerback', name:'Erector spinae', d:'The columns along both sides of the spine. Straighten and arch the back.'},
+ {id:'ql', g:'lowerback', deep:1, name:'Quadratus lumborum', d:'Deep low back, mostly under the erector spinae, from the lowest rib to the pelvis. Side-bends the trunk and hikes the hip.'},
+
+ {id:'glute_max', g:'hips', name:'Gluteus maximus', d:'The big buttock muscle. Extends the hip for standing up, climbing and sprinting.'},
+ {id:'glute_med', g:'hips', name:'Gluteus medius', d:'Upper outer hip. Keeps the pelvis level when you stand on one leg.'},
+ {id:'tfl', g:'hips', name:'Tensor fasciae latae', d:'Front-outer hip, feeding into the IT band. Flexes and lifts the leg out.'},
+ {id:'glute_min', g:'hips', deep:1, name:'Gluteus minimus', d:'Under the medius. Helps lift the leg out and turn it in.'},
+ {id:'piriformis', g:'hips', deep:1, name:'Piriformis', d:'Deep in the buttock, sacrum to hip. Turns the thigh outward; sits over the sciatic nerve.'},
+ {id:'sup_gem', g:'hips', deep:1, name:'Superior gemellus', d:'Deep hip rotator just below the piriformis. Turns the thigh outward and steadies the hip socket.'},
+ {id:'obt_int', g:'hips', deep:1, name:'Obturator internus', d:'Deep hip rotator from inside the pelvis, running between the gemelli. Turns the thigh outward.'},
+ {id:'inf_gem', g:'hips', deep:1, name:'Inferior gemellus', d:'Deep hip rotator just under the obturator internus. Turns the thigh outward.'},
+ {id:'obt_ext', g:'hips', deep:1, name:'Obturator externus', d:'The deepest rotator. Wraps under the neck of the thigh bone, mostly hidden behind quadratus femoris. Turns the thigh outward.'},
+ {id:'quad_fem', g:'hips', deep:1, name:'Quadratus femoris', d:'Flat, square deep rotator between the sit bone and the thigh bone. Strong outward rotator.'},
+ {id:'iliopsoas', g:'hips', deep:1, name:'Iliopsoas (hip flexors)', d:'Psoas runs from the T12 to L5 vertebrae and iliacus lines the inside of the pelvic bowl; they join to attach to the inner thigh bone. The main hip flexor; tight from sitting.'},
+
+ {id:'rectus_fem', g:'quads', name:'Rectus femoris', d:'Center of the front thigh. Straightens the knee and flexes the hip.'},
+ {id:'vastus_lat', g:'quads', name:'Vastus lateralis', d:'Outer front thigh, the largest quad. Straightens the knee.'},
+ {id:'vastus_med', g:'quads', name:'Vastus medialis', d:'The teardrop above the inner knee. Straightens the knee and steadies the kneecap.'},
+ {id:'sartorius', g:'quads', name:'Sartorius', d:'Long strap from the outer hip to the inner knee. Helps you sit cross-legged.'},
+ {id:'vastus_int', g:'quads', deep:1, name:'Vastus intermedius', d:'Under the rectus femoris. Straightens the knee.'},
+
+ {id:'add_longus', g:'adductors', name:'Adductor longus', d:'Upper inner thigh. Squeezes the legs together.'},
+ {id:'pectineus', g:'adductors', name:'Pectineus', d:'Small muscle in the groin crease. Flexes the hip and draws the leg in.'},
+ {id:'gracilis', g:'adductors', name:'Gracilis', d:'Thin strap down the inner thigh to below the knee. Draws the leg in and bends the knee.'},
+ {id:'add_magnus', g:'adductors', name:'Adductor magnus', d:'The large rear inner-thigh muscle. Draws the leg in and helps extend the hip.'},
+
+ {id:'biceps_fem', g:'hamstrings', name:'Biceps femoris', d:'Outer hamstring. Bends the knee and extends the hip.'},
+ {id:'semitend', g:'hamstrings', name:'Semitendinosus', d:'Inner hamstring. Bends the knee and extends the hip.'},
+ {id:'semimem', g:'hamstrings', name:'Semimembranosus', d:'Deepest inner hamstring. Bends the knee and extends the hip.'},
+
+ {id:'gastroc', g:'lowerleg', name:'Gastrocnemius', d:'The two-headed calf muscle. Points the foot and crosses the knee.'},
+ {id:'soleus', g:'lowerleg', name:'Soleus', d:'Flat calf muscle under the gastrocnemius. Points the foot; works hardest with the knee bent.'},
+ {id:'tib_ant', g:'lowerleg', name:'Tibialis anterior', d:'Front of the shin. Lifts the foot and toes.'},
+ {id:'peroneals', g:'lowerleg', name:'Peroneals (fibularis)', d:'Outer lower leg. Turn the sole outward and steady the ankle.'},
+ {id:'toe_ext', g:'lowerleg', name:'Toe extensors', d:'Front-outer shin, just outside the tibialis anterior (extensor digitorum longus). Lift the toes.'},
+ {id:'tib_post', g:'lowerleg', deep:1, name:'Tibialis posterior', d:'Deep in the calf. Supports the arch and turns the sole inward.'},
+ {id:'fdl', g:'lowerleg', deep:1, name:'Flexor digitorum longus', d:'Deep in the inner lower calf, behind the shin bone. Curls the four smaller toes.'},
+ {id:'fhl', g:'lowerleg', deep:1, name:'Flexor hallucis longus', d:'Deep in the outer lower calf, crossing behind the inner ankle to the big toe. Push-off muscle; supports the arch.'},
+ {id:'foot_arch', g:'lowerleg', deep:1, name:'Plantar fascia & arch', d:'Runs along the sole from the heel to the toes; seen edge-on under the heel in the back view. Sore in plantar fasciitis.', note:'The front-view patch on top of the foot only marks the foot; the fascia is underneath.'},
+];
+
+// ---------- Stretches ----------
+// p = primary targets, s = secondary. pos: Standing | Seated | Floor. eq: '' when nothing is needed.
+// lvl: 1 gentle, 2 moderate, 3 advanced. Steps describe the right side; mirror for the left.
+const STRETCHES = [
+ {id:'upper-trap', name:'Seated upper-trap side bend', p:['upper_trap'], s:['scalenes','levator','scm'], pos:'Seated', eq:'Chair', hold:30, sides:1, lvl:1,
+  steps:['Sit tall and hold the edge of the seat with your right hand to anchor that shoulder down.','Tilt your left ear toward your left shoulder.','Rest your left hand on your head and let its weight add a little stretch. Don’t pull.','Breathe slowly, then switch sides.'],
+  feel:'Along the top of the right shoulder and side of the neck.'},
+ {id:'levator', name:'Levator scapulae stretch', p:['levator'], s:['upper_trap','splenius'], pos:'Seated', eq:'Chair', hold:30, sides:1, lvl:1,
+  steps:['Sit tall and hold the seat edge with your right hand.','Turn your head 45° to the left, then drop your nose toward your left armpit.','Place your left hand on the back of your head and let its weight deepen the stretch.','Hold, then switch sides.'],
+  feel:'Back corner of the neck, down toward the top of the shoulder blade.'},
+ {id:'scalenes', name:'Scalene stretch', p:['scalenes'], s:['scm','upper_trap'], pos:'Seated', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Place your left hand flat on your upper chest just below the right collarbone to hold it down.','Tilt your left ear toward your left shoulder.','Slowly lift your chin toward the ceiling.','Hold, then switch sides.'],
+  feel:'Front-side of the neck above the right collarbone.', care:'Ease off if you feel tingling down the arm.'},
+ {id:'scm', name:'SCM stretch', p:['scm'], s:['scalenes'], pos:'Seated', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Sit or stand tall with relaxed shoulders.','Drop your left ear toward your left shoulder.','Turn your chin up and to the right.','Lift your chin a little more until the right side of the neck stretches. Hold, then switch.'],
+  feel:'Right side of the neck, from behind the ear to the collarbone.'},
+ {id:'chin-tuck', name:'Chin-tuck neck flexion', p:['splenius','suboccipitals'], s:['upper_trap','levator'], pos:'Seated', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Sit tall and draw your chin straight back into a double chin.','Keeping the tuck, slowly nod your chin toward your chest.','Clasp your hands on the back of your head and let their weight add a light stretch.','Keep your shoulders down and breathe.'],
+  feel:'Back of the neck and the base of the skull.'},
+
+ {id:'cross-body', name:'Cross-body shoulder stretch', p:['post_delt','infraspinatus','teres_minor'], s:['rhomboids','mid_trap'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Bring your right arm straight across your chest.','Hook your left forearm just above the right elbow.','Pull the arm toward your chest while keeping the right shoulder down, away from your ear.','Hold, then switch.'],
+  feel:'Back of the right shoulder.'},
+ {id:'sleeper', name:'Sleeper stretch', p:['infraspinatus','teres_minor'], s:['post_delt'], pos:'Floor', eq:'', hold:30, sides:1, lvl:2,
+  steps:['Lie on your right side, head on a pillow, right arm in front at shoulder height with the elbow bent 90° and fingers pointing up.','Roll back about 20° so you aren’t lying on the point of the shoulder.','With your left hand, gently press your right forearm down toward the floor.','Stop at a mild stretch. Hold, then switch.'],
+  feel:'Back of the shoulder.', care:'Never push into pinching at the front of the shoulder.'},
+ {id:'doorway-er', name:'Doorframe external rotation stretch', p:['subscap'], s:['pec_major','ant_delt'], pos:'Standing', eq:'Doorway', hold:30, sides:1, lvl:1,
+  steps:['Stand in a doorway with your right elbow bent 90° and tucked against your side.','Place your right palm on the door frame.','Keep the elbow pinned to your side and slowly turn your body to the left, away from the frame.','Hold, then switch.'],
+  feel:'Front of the shoulder and into the armpit.'},
+ {id:'towel-ir', name:'Towel behind-the-back stretch', p:['infraspinatus','supraspinatus','teres_minor'], s:['ant_delt','triceps_long'], pos:'Standing', eq:'Strap', hold:30, sides:1, lvl:2,
+  steps:['Hold a towel over your left shoulder with your left hand. Reach your right hand behind your low back and grab the other end.','Gently pull the towel up with the top hand so the lower hand slides up your back.','Keep your chest open and your shoulders level.','Hold, then swap hands.'],
+  feel:'Back and top of the lower shoulder. The top arm’s triceps stretches too.'},
+ {id:'hands-behind', name:'Hands-behind chest opener', p:['pec_major','ant_delt','biceps'], s:['pec_minor','brachialis'], pos:'Standing', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Stand tall and interlace your fingers behind your back. Hold a towel between your hands if they don’t reach.','Straighten your elbows and squeeze your shoulder blades together.','Lift your hands away from your back and open your chest.','Keep your chin level and breathe into the front of your chest.'],
+  feel:'Across the chest, the front of the shoulders and the biceps.'},
+ {id:'behind-back-pull', name:'Behind-the-back wrist pull', p:['lat_delt','supraspinatus'], s:['upper_trap'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Reach both hands behind your back and hold your right wrist with your left hand.','Gently pull the right arm across your back toward your left hip.','For more, tilt your left ear toward your left shoulder.','Hold, then switch.'],
+  feel:'Outer right shoulder, often up into the side of the neck.'},
+ {id:'thread-needle', name:'Thread the needle', p:['post_delt','rhomboids','mid_trap'], s:['infraspinatus','obliques'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Start on hands and knees, hands under shoulders.','Slide your right arm, palm up, under your chest toward the left.','Lower your right shoulder and temple to the floor and let your upper back twist.','Keep your hips over your knees. Hold, then switch.'],
+  feel:'Back of the right shoulder and between the shoulder blades.'},
+
+ {id:'doorway-pec', name:'Doorway pec stretch', p:['pec_major','ant_delt'], s:['pec_minor','biceps'], pos:'Standing', eq:'Doorway', hold:30, sides:0, lvl:1,
+  steps:['Stand in a doorway with your forearms on the frame, elbows bent 90° at shoulder height.','Step one foot through the door.','Shift your weight forward until you feel the chest stretch.','Keep your ribs down instead of arching your low back.'],
+  feel:'Across the chest and the front of the shoulders.'},
+ {id:'high-doorway', name:'High doorway Y stretch', p:['pec_minor','pec_major'], s:['ant_delt','lats'], pos:'Standing', eq:'Doorway', hold:30, sides:0, lvl:1,
+  steps:['Place your forearms on the door frame above head height, arms in a Y.','Step through with one foot.','Lean forward gently and let your shoulder blades slide back and down.','Hold without shrugging.'],
+  feel:'Upper chest, near the armpit and below the collarbone.'},
+ {id:'roller-chest', name:'Foam roller chest opener', p:['pec_major','pec_minor'], s:['ant_delt','biceps'], pos:'Floor', eq:'Foam roller', hold:60, sides:0, lvl:1,
+  steps:['Lie lengthwise on a foam roller or a rolled towel so it supports your head and spine.','Bend your knees and keep your feet flat.','Let your arms fall open to the sides, palms up, elbows slightly bent.','Slowly slide the arms up and down like a snow angel, pausing where it feels tight.'],
+  feel:'Across the chest and the front of the shoulders.'},
+ {id:'open-book', name:'Side-lying open book', p:['pec_major','obliques'], s:['ant_delt','pec_minor','serratus'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Lie on your left side with knees bent 90° and stacked, arms straight out in front, palms together.','Keep your knees together and sweep your right arm up and over, opening your chest to the ceiling.','Follow your hand with your eyes and let the arm settle toward the floor behind you.','Hold, or move in and out slowly for 8 reps. Switch sides.'],
+  feel:'Across the chest and through the mid-back and waist.'},
+ {id:'side-childs', name:'Side-reach child’s pose', p:['lats','serratus'], s:['obliques','teres_major','ql'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Kneel and sit your hips back toward your heels.','Walk both hands forward, then walk them over to the left.','Press the right palm down and sink your right hip toward your heel.','Breathe into your right ribs. Hold, then switch.'],
+  feel:'Along the right side of the trunk, from armpit to hip.'},
+ {id:'bench-lat', name:'Bench lat stretch', p:['lats','teres_major','triceps_long'], s:['serratus','pec_major'], pos:'Floor', eq:'Bench', hold:30, sides:0, lvl:1,
+  steps:['Kneel facing a bench, chair seat or couch.','Rest your elbows on the edge, shoulder-width apart, and bend them so your hands reach behind your head.','Sit your hips back and let your chest sink toward the floor.','Keep your ribs tucked. Hold and breathe.'],
+  feel:'Along the sides of the back and the backs of the upper arms.'},
+
+ {id:'wall-biceps', name:'Wall biceps stretch', p:['biceps','brachialis'], s:['ant_delt','pec_major','brachioradialis'], pos:'Standing', eq:'Wall', hold:30, sides:1, lvl:1,
+  steps:['Stand side-on to a wall and place your right palm on it behind you at shoulder height, fingers pointing back.','Straighten the elbow fully.','Slowly turn your chest away from the wall until you feel the front of the arm.','Turn the thumb down for more. Hold, then switch.'],
+  feel:'Front of the upper arm and shoulder.'},
+ {id:'floor-biceps', name:'Seated floor biceps stretch', p:['biceps','ant_delt'], s:['brachialis','wrist_flexors','pec_major'], pos:'Seated', eq:'', hold:30, sides:0, lvl:2,
+  steps:['Sit on the floor with knees bent and feet flat.','Place your hands on the floor behind you, fingers pointing away from your body.','Straighten your elbows.','Slowly slide your hips forward, away from your hands.'],
+  feel:'Front of the upper arms, the shoulders and the forearms.'},
+ {id:'overhead-triceps', name:'Overhead triceps stretch', p:['triceps_long','triceps_lat'], s:['lats','teres_major'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Raise your right arm and bend the elbow so your hand drops behind your neck.','Place your left hand on the right elbow.','Gently push the elbow back and toward your head.','Stand tall without arching your low back. Switch sides.'],
+  feel:'Back of the upper arm and into the armpit.'},
+ {id:'wrist-flexor', name:'Wrist flexor stretch', p:['wrist_flexors'], s:['biceps'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Hold your right arm straight out at shoulder height, palm up.','With your left hand, gently pull the right fingers down and back toward you.','Keep the elbow straight.','Hold, then switch.'],
+  feel:'Palm side of the forearm.'},
+ {id:'wrist-extensor', name:'Wrist extensor stretch', p:['wrist_extensors'], s:['brachioradialis'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Hold your right arm straight out at shoulder height, palm down.','Make a loose fist and bend the wrist down.','With your left hand, gently press the back of the hand toward you.','Keep the elbow straight. Switch sides.'],
+  feel:'Top of the forearm toward the outer elbow.'},
+ {id:'prayer', name:'Prayer stretch', p:['wrist_flexors'], s:[], pos:'Standing', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Press your palms together in front of your chest, fingers pointing up.','Keep the palms together and slowly lower your hands toward your waist.','Stop when you feel the stretch, elbows out to the sides.'],
+  feel:'Palm side of the wrists and forearms.'},
+ {id:'kneel-wrist', name:'Kneeling back-of-hand stretch', p:['wrist_extensors'], s:['brachioradialis'], pos:'Floor', eq:'', hold:20, sides:0, lvl:2,
+  steps:['Kneel on all fours.','Turn your hands over so the backs rest on the floor, fingers pointing toward your knees.','Keep your elbows straight and slowly shift your weight back toward your heels.','Go gently; this one is strong.'],
+  feel:'Tops of the wrists and forearms.'},
+
+ {id:'sphinx', name:'Sphinx to cobra', p:['rectus_abd'], s:['iliopsoas','obliques'], pos:'Floor', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Lie face down with elbows under shoulders and forearms on the floor.','Press your forearms down and lift your chest, hips staying on the floor.','For more, straighten your arms into cobra, only as far as your low back is comfortable.','Relax your glutes and breathe into your belly.'],
+  feel:'Down the front of the abdomen.', care:'Stay in sphinx if your low back pinches.'},
+ {id:'side-bend', name:'Standing overhead side bend', p:['obliques','lats'], s:['ql','serratus'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Stand with feet hip-width apart.','Reach your right arm overhead and hold the right wrist with your left hand.','Lean to the left, drawing the wrist gently up and over.','Keep both feet grounded and the hips square. Switch sides.'],
+  feel:'Right side of the waist and back, up into the armpit.'},
+ {id:'supine-twist', name:'Supine spinal twist', p:['obliques','glute_med'], s:['erectors','glute_max','ql','pec_major'], pos:'Floor', eq:'', hold:45, sides:1, lvl:1,
+  steps:['Lie on your back and hug your right knee to your chest.','Guide the right knee across your body to the left with your left hand.','Stretch your right arm out to the side and let the right shoulder rest on the floor.','Turn your head to the right if comfortable. Switch sides.'],
+  feel:'Outer right hip, waist and low back.'},
+ {id:'camel', name:'Camel pose', p:['rectus_abd','iliopsoas','rectus_fem'], s:['pec_major','ant_delt','obliques'], pos:'Floor', eq:'', hold:20, sides:0, lvl:3,
+  steps:['Kneel with knees hip-width apart, thighs vertical, toes tucked.','Place your hands on your low back, fingers pointing down.','Push your hips forward and lift your chest as you lean back.','If comfortable, reach your hands to your heels. Keep your neck long.'],
+  feel:'The whole front of the body, thighs to chest.', care:'Come up slowly. Keep your hands on your back if your low back complains.'},
+
+ {id:'childs', name:'Extended child’s pose', p:['lats'], s:['erectors','teres_major','triceps_long','glute_max'], pos:'Floor', eq:'', hold:45, sides:0, lvl:1,
+  steps:['Kneel with big toes together and knees apart.','Sit your hips back toward your heels.','Walk your hands forward and lower your chest toward the floor.','Reach long through your fingers and breathe into your back.'],
+  feel:'Sides of the back, the shoulders and the low back.'},
+ {id:'bar-hang', name:'Passive bar hang', p:['lats','teres_major'], s:['pec_major','wrist_flexors','triceps_long'], pos:'Standing', eq:'Pull-up bar', hold:20, sides:0, lvl:2,
+  steps:['Grip a pull-up bar overhand, hands shoulder-width or a little wider.','Start with your feet on a box or the floor and bend your knees to load your arms.','Let your shoulders rise toward your ears and relax into the hang.','Build up to a full hang over time.'],
+  feel:'Sides of the back, the armpits and the forearms.', care:'Skip it if your shoulder is injured or feels unstable.'},
+ {id:'upper-round', name:'Seated upper-back round', p:['rhomboids','mid_trap'], s:['post_delt','lower_trap'], pos:'Seated', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Sit tall and clasp your hands in front of you at chest height, arms straight.','Push your hands forward as you round your upper back and spread your shoulder blades apart.','Drop your chin slightly toward your chest.','Breathe into the space between your shoulder blades.'],
+  feel:'Between the shoulder blades.'},
+ {id:'cat-cow', name:'Cat–cow', p:['erectors','rectus_abd'], s:['rhomboids','mid_trap'], pos:'Floor', eq:'', hold:45, sides:0, lvl:1,
+  steps:['Start on hands and knees, wrists under shoulders and knees under hips.','Cat: exhale, tuck your tailbone and round your spine toward the ceiling.','Cow: inhale, tip your tailbone up, let your belly drop and lift your chest.','Flow slowly between the two for 8–10 breaths.'],
+  feel:'Along the spine in cat, down the front of the trunk in cow.'},
+ {id:'post-pull', name:'Doorframe upper-back pull', p:['mid_trap','lower_trap','rhomboids'], s:['lats','post_delt'], pos:'Standing', eq:'Doorway', hold:30, sides:0, lvl:1,
+  steps:['Face a door frame or sturdy post and grip it with both hands at waist height.','Bend your knees and sit your hips back until your arms are straight.','Round your upper back and let your shoulder blades pull apart.','Shift slightly side to side to find the tight spots.'],
+  feel:'Across the mid and upper back.'},
+
+ {id:'knees-chest', name:'Knees to chest', p:['erectors'], s:['glute_max','ql'], pos:'Floor', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Lie on your back with knees bent.','Bring both knees toward your chest and hold behind your thighs or shins.','Let your low back flatten and your tailbone curl slightly off the floor.','Rock gently side to side if it feels good.'],
+  feel:'Low back and buttocks.'},
+ {id:'crossover-bend', name:'Standing crossover side bend', p:['ql','tfl'], s:['obliques','lats','glute_med'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Stand tall and cross your right leg behind your left.','Raise your right arm overhead.','Push your right hip out to the right as you reach up and over to the left.','Hold, then switch.'],
+  feel:'Outer right hip and the right side of the low back.'},
+ {id:'forward-fold', name:'Seated forward fold', p:['biceps_fem','semitend','semimem'], s:['erectors','gastroc'], pos:'Seated', eq:'', hold:45, sides:0, lvl:1,
+  steps:['Sit with your legs straight out in front, toes pointing up.','Sit tall, then hinge forward from the hips toward your shins or feet.','Loop a strap around your feet if you can’t reach.','Lead with your chest instead of rounding hard through your back.'],
+  feel:'Backs of the legs and the low back.'},
+
+ {id:'figure-4', name:'Figure-4 stretch', p:['piriformis','glute_max'], s:['glute_med','glute_min','obt_int','sup_gem','inf_gem'], pos:'Floor', eq:'', hold:45, sides:1, lvl:1,
+  steps:['Lie on your back with knees bent.','Cross your right ankle over your left knee.','Thread your right hand through the gap and hold behind your left thigh.','Pull the left thigh toward your chest while the right knee eases away. Switch sides.'],
+  feel:'Deep in the right buttock.'},
+ {id:'knee-drop', name:'Supine knee drop', p:['quad_fem','obt_int','sup_gem','inf_gem'], s:['obt_ext','glute_med','glute_min'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Lie on your back with knees bent and feet flat, a little wider than your hips.','Let both knees fall slowly to the left, feet staying put.','Let the right knee drop in toward the left heel until you feel the outer right hip.','Hold, then let the knees fall to the right.'],
+  feel:'Deep in the back and side of the right hip.'},
+ {id:'knee-shoulder', name:'Knee to opposite shoulder', p:['piriformis','obt_int','sup_gem','inf_gem'], s:['glute_max','quad_fem'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Lie on your back with both legs long.','Bend your right knee and hold it with both hands.','Pull the knee up and across your body toward your left shoulder.','Stop where you feel the deep right buttock. Hold, then switch.'],
+  feel:'Deep in the right buttock, under the glutes.'},
+ {id:'ninety-ninety', name:'90/90 hip stretch', p:['quad_fem','obt_ext','sup_gem','inf_gem'], s:['obt_int','glute_max','piriformis','glute_min'], pos:'Floor', eq:'', hold:45, sides:1, lvl:2,
+  steps:['Sit with your left knee bent 90\u00b0 in front of you and your right knee bent 90\u00b0 out to the side behind you.','Sit tall and press the right knee and foot gently into the floor.','Turn your chest toward the back (right) knee and lean slightly toward it.','Hold, then switch which leg is in front.'],
+  feel:'Back and side of the right hip; the front hip may feel it in the buttock.', care:'Prop your hips on a cushion if either knee complains.'},
+ {id:'chair-glute', name:'Seated chair glute stretch', p:['glute_max','piriformis'], s:['glute_med','obt_int','sup_gem','inf_gem'], pos:'Seated', eq:'Chair', hold:30, sides:1, lvl:1,
+  steps:['Sit on a chair and cross your right ankle over your left knee.','Sit tall and let the right knee lower.','Hinge forward from the hips with a flat back until you feel the right buttock.','Hold, then switch.'],
+  feel:'Right buttock and outer hip.'},
+ {id:'pigeon', name:'Pigeon pose', p:['glute_max','piriformis'], s:['glute_med','iliopsoas','obt_int','sup_gem','inf_gem'], pos:'Floor', eq:'', hold:45, sides:1, lvl:2,
+  steps:['From hands and knees, bring your right knee forward behind your right wrist, shin angled across your body.','Slide your left leg straight back, top of the foot on the floor.','Square your hips and lower them toward the floor. Put a cushion under the right hip if needed.','Stay upright or fold over the front leg. Switch sides.'],
+  feel:'Right buttock and outer hip; front of the left hip.', care:'If the front knee complains, use the figure-4 stretch instead.'},
+ {id:'seated-twist', name:'Seated cross-leg twist', p:['glute_med','glute_min','obliques'], s:['glute_max','piriformis','erectors'], pos:'Seated', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Sit with your left leg straight.','Bend your right knee and step the right foot over to the outside of your left knee.','Hug the right knee with your left arm and twist to the right, right hand on the floor behind you.','Grow tall as you twist. Switch sides.'],
+  feel:'Outer right hip and buttock, the waist and the back.'},
+ {id:'half-kneel', name:'Half-kneeling hip flexor stretch', p:['iliopsoas'], s:['rectus_fem','tfl','sartorius'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Kneel on your right knee on a cushion, left foot flat in front, both knees at 90°.','Tuck your tailbone under and squeeze your right glute.','Shift your hips slightly forward without arching your back.','Raise your right arm and lean a little to the left for more. Switch sides.'],
+  feel:'Front of the right hip.'},
+ {id:'high-lunge', name:'High lunge, back knee straight', p:['iliopsoas','sartorius'], s:['rectus_fem','gastroc'], pos:'Standing', eq:'', hold:30, sides:1, lvl:2,
+  steps:['Step your left foot forward into a long lunge, back heel lifted.','Keep your right leg straight and your pelvis tucked.','Bend the front knee to sink your hips forward and down.','Reach both arms overhead. Switch sides.'],
+  feel:'Front of the right hip and the upper inner thigh.'},
+ {id:'standing-tfl', name:'Wall TFL stretch', p:['tfl','glute_med'], s:['glute_min','ql'], pos:'Standing', eq:'Wall', hold:30, sides:1, lvl:1,
+  steps:['Stand with your right side to a wall, right hand on it.','Cross your right leg behind your left.','Let your right hip drift toward the wall while your trunk stays upright.','Hold, then switch.'],
+  feel:'Outer right hip, front of the hip bone.'},
+ {id:'couch', name:'Couch stretch', p:['rectus_fem','iliopsoas'], s:['vastus_lat','vastus_med','vastus_int'], pos:'Floor', eq:'Wall', hold:45, sides:1, lvl:3,
+  steps:['Kneel with your back to a wall or couch and slide your right knee into the corner, shin up the wall.','Step your left foot forward into a lunge.','Tuck your pelvis and slowly bring your torso upright.','Stay as low as you need to keep your back neutral. Switch sides.'],
+  feel:'Front of the right thigh and hip, strongly.'},
+
+ {id:'standing-quad', name:'Standing quad stretch', p:['rectus_fem','vastus_lat','vastus_med','vastus_int'], s:['iliopsoas','tib_ant'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Stand on your left leg, holding a wall or chair for balance.','Bend your right knee and hold the right ankle behind you.','Draw the heel toward your buttock with knees side by side.','Tuck your pelvis slightly to feel more at the front of the hip. Switch sides.'],
+  feel:'Front of the right thigh.'},
+ {id:'side-quad', name:'Side-lying quad stretch', p:['rectus_fem','vastus_lat','vastus_med','vastus_int'], s:['iliopsoas','tfl'], pos:'Floor', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Lie on your left side with your head on your arm.','Bend your right knee and hold the ankle with your right hand.','Draw the heel toward your buttock and press the right hip slightly forward.','Keep the knees stacked. Switch sides.'],
+  feel:'Front of the top thigh.'},
+
+ {id:'butterfly', name:'Butterfly stretch', p:['add_longus','pectineus'], s:['add_magnus','gracilis'], pos:'Seated', eq:'', hold:45, sides:0, lvl:1,
+  steps:['Sit tall and bring the soles of your feet together, knees falling out.','Hold your ankles and draw your heels toward you.','Let your knees lower; press them gently with your elbows for more.','Hinge forward with a long spine to go deeper.'],
+  feel:'Inner thighs and groin.'},
+ {id:'frog', name:'Frog stretch', p:['add_magnus','add_longus','pectineus'], s:['gracilis'], pos:'Floor', eq:'', hold:45, sides:0, lvl:2,
+  steps:['Start on hands and knees with cushions under your knees.','Slide your knees wide apart, ankles in line with knees and feet turned out.','Lower onto your forearms.','Slowly rock your hips back toward your heels and hold where you can still breathe easily.'],
+  feel:'Deep in the inner thighs and groin.'},
+ {id:'side-lunge', name:'Side lunge stretch', p:['gracilis','add_longus','add_magnus'], s:['semitend','semimem'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Stand with feet wide, toes forward.','Shift your weight left, bending the left knee and sitting the hips back.','Keep the right leg straight with the foot flat.','Hold, then shift to the other side.'],
+  feel:'Inner thigh of the straight right leg.'},
+ {id:'straddle', name:'Wide-leg forward fold', p:['add_magnus','gracilis','semimem','semitend'], s:['biceps_fem','erectors'], pos:'Seated', eq:'', hold:45, sides:0, lvl:2,
+  steps:['Sit with your legs straight and wide, toes pointing up.','Sit tall with your hands on the floor in front of you.','Walk your hands forward, hinging from the hips.','Keep the kneecaps facing up and stop before your back rounds hard.'],
+  feel:'Inner thighs and the backs of the legs.'},
+
+ {id:'strap-ham', name:'Strap hamstring stretch', p:['biceps_fem','semitend','semimem'], s:['gastroc'], pos:'Floor', eq:'Strap', hold:45, sides:1, lvl:1,
+  steps:['Lie on your back and loop a strap or towel around your right foot.','Straighten the right leg toward the ceiling; the left leg stays bent or long on the floor.','Draw the leg toward you until you feel a mild stretch, knee nearly straight.','Flex the foot to bring in the calf. Switch sides.'],
+  feel:'Back of the right thigh.'},
+ {id:'step-ham', name:'Heel-on-step hamstring stretch', p:['biceps_fem','semitend','semimem'], s:['gastroc'], pos:'Standing', eq:'Step', hold:30, sides:1, lvl:1,
+  steps:['Face a low step or chair and rest your right heel on it, leg straight, toes up.','Keep your back long and hinge forward from the hips.','Aim your belly button at your thigh instead of rounding down.','Hold, then switch.'],
+  feel:'Back of the right thigh and behind the knee.'},
+ {id:'down-dog', name:'Downward dog', p:['gastroc','biceps_fem','semitend','semimem'], s:['lats','soleus','erectors'], pos:'Floor', eq:'', hold:30, sides:0, lvl:2,
+  steps:['From hands and knees, tuck your toes and lift your hips up and back.','Press the floor away and lengthen your spine.','Straighten your knees as far as you can and sink your heels toward the floor.','Pedal your feet to work into each calf.'],
+  feel:'Calves, hamstrings and the sides of the back.'},
+
+ {id:'wall-calf', name:'Wall calf stretch', p:['gastroc'], s:['soleus'], pos:'Standing', eq:'Wall', hold:30, sides:1, lvl:1,
+  steps:['Face a wall with your hands on it at shoulder height.','Step your right foot back, heel down, toes pointing forward.','Keep the back knee straight and lean your hips toward the wall.','Hold, then switch.'],
+  feel:'Upper right calf.'},
+ {id:'bent-calf', name:'Bent-knee calf stretch', p:['soleus'], s:['tib_post'], pos:'Standing', eq:'Wall', hold:30, sides:1, lvl:1,
+  steps:['Face a wall in a short split stance, right foot back.','Keep the right heel down and bend both knees.','Sink the right knee forward and down until you feel the low calf.','Hold, then switch.'],
+  feel:'Lower calf, just above the heel.'},
+ {id:'heel-drop', name:'Heel drop off a step', p:['gastroc','soleus'], s:['tib_post'], pos:'Standing', eq:'Step', hold:30, sides:1, lvl:2,
+  steps:['Stand on a step holding a rail, balls of the feet on the edge.','Shift your weight onto the right foot.','Slowly lower the right heel below the step.','Hold with the knee straight, then bend it slightly to move the stretch lower. Switch.'],
+  feel:'The whole calf and the Achilles.'},
+ {id:'kneel-shin', name:'Kneeling shin stretch', p:['tib_ant'], s:['toe_ext','rectus_fem'], pos:'Floor', eq:'', hold:30, sides:0, lvl:1,
+  steps:['Kneel with the tops of your feet flat on the floor, toes pointing back.','Sit back onto your heels.','For more, lean back and lift your knees an inch off the floor with your hands.','Put a cushion between heels and hips if needed.'],
+  feel:'Fronts of the shins and tops of the feet.'},
+ {id:'toe-drag', name:'Standing shin stretch', p:['tib_ant','toe_ext'], s:['peroneals'], pos:'Standing', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Stand tall, holding a wall for balance.','Rest the tops of your right toes on the floor behind you, sole facing up.','Gently press the foot down and bend your standing knee slightly.','Hold, then switch.'],
+  feel:'Front of the right shin and ankle.'},
+ {id:'peroneal', name:'Seated peroneal stretch', p:['peroneals'], s:['soleus'], pos:'Seated', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Sit and cross your right ankle over your left knee.','Hold the outer edge of your right foot.','Turn the sole up toward you and draw the toes back toward the shin.','Hold, then switch.'],
+  feel:'Outer lower leg and ankle.'},
+ {id:'tib-post', name:'Strap arch and calf stretch', p:['tib_post'], s:['soleus','gastroc','fhl','fdl'], pos:'Seated', eq:'Strap', hold:30, sides:1, lvl:1,
+  steps:['Sit with your right leg straight and loop a strap around the ball of the foot.','Draw your toes toward you.','Keep the pull and turn the sole slightly outward, away from the other leg.','Hold, then switch.'],
+  feel:'Deep calf and the inside of the ankle.'},
+ {id:'toe-pull', name:'Seated plantar fascia stretch', p:['foot_arch','fhl','fdl'], s:['soleus'], pos:'Seated', eq:'', hold:30, sides:1, lvl:1,
+  steps:['Sit and cross your right ankle over your left knee.','Hold your right toes with your right hand and pull them back toward the shin.','With your left thumb, feel along the arch for the tight band.','Hold, then switch.'],
+  feel:'Along the arch and sole of the right foot.'},
+ {id:'wall-toe', name:'Wall toe stretch', p:['foot_arch','fhl','fdl','gastroc'], s:['soleus'], pos:'Standing', eq:'Wall', hold:30, sides:1, lvl:1,
+  steps:['Face a wall and rest the ball of your right foot and toes against it, heel on the floor.','Keep the right knee straight.','Lean your hips gently toward the wall.','Hold, then switch.'],
+  feel:'Sole of the right foot, the Achilles and the calf.'},
+];
+
+const PRESETS = [
+ {name:'Desk neck & shoulders', m:['upper_trap','levator','scalenes','pec_minor','pec_major','splenius']},
+ {name:'Sitting all day', m:['iliopsoas','rectus_fem','glute_max','erectors','biceps_fem','semitend']},
+ {name:'After a run', m:['gastroc','soleus','foot_arch','biceps_fem','semitend','rectus_fem','tfl','glute_med']},
+ {name:'After a long hike', note:'Calves, feet, shins, quads, hips and pack-strap traps', m:['gastroc','soleus','foot_arch','tib_ant','rectus_fem','vastus_lat','biceps_fem','glute_max','glute_med','tfl','iliopsoas','upper_trap']},
+ {name:'Day after heavy lifting', note:'Squat, bench and sumo deadlift: legs, adductors, back, chest, triceps, grip', m:['rectus_fem','vastus_lat','vastus_med','glute_max','add_magnus','add_longus','biceps_fem','erectors','lats','pec_major','ant_delt','triceps_long','wrist_flexors']},
+ {name:'Low back relief', m:['erectors','ql','glute_max','piriformis','iliopsoas']},
+];
+
+// ---------- Cartoon figure rig (animated) ----------
+// Angles are absolute, in degrees: 0 = up, 90 = forward (right), 180 = down, 270 = back (left).
+// v:'s' side view (figure faces right) | v:'f' front/back view | top:1 seen from above (drawn on a mat, no floor).
+// Arms: [upper, fore, hand?, upperScale, foreScale]  or  {to:'knN', off:[x,y], bend:±1}  (hand reaches a joint)
+//       or {w:'hdN', bend:±1} (hand stays where the finished stretch has it, e.g. planted on a wall or floor).
+// Legs: [thigh, shin, foot?, thighScale, shinScale, footScale].
+// hl: parts drawn in the stretch colour. anchor: joint kept still while animating (default: the floor contact).
+const RIG = {T: 30, SH_AT: 26.5, NECK: 5, HEAD: 7.6, UA: 15, FA: 13, HAND: 4.5, TH: 22, SHIN: 21, FT: 8, SHO: 8.5, HIPO: 5};
+const WID = {torso: 12, neck: 5.4, ua: 6.6, fa: 5.6, th: 8, sh: 6.6, ft: 4.6};
+const R2 = n => Math.round(n * 10) / 10;
+function vdir(a) { const r = a * Math.PI / 180; return [Math.sin(r), -Math.cos(r)]; }
+function vadd(p, a, L) { const d = vdir(a); return [p[0] + d[0] * L, p[1] + d[1] * L]; }
+function angOf(p, q) { return Math.atan2(q[0] - p[0], -(q[1] - p[1])) * 180 / Math.PI; }
+function dist(p, q) { return Math.hypot(q[0] - p[0], q[1] - p[1]); }
+const isObj = a => a && !Array.isArray(a) && typeof a === 'object';
+
+function legSpec(P, s) {
+  const front = (P.v || 's') !== 's';
+  const d = front ? (s === 'N' ? 120 : 240) : 90;
+  const l = P['l' + s] || [180, 180, d];
+  return [l[0], l[1], l[2] ?? d, l[3] ?? 1, l[4] ?? 1, l[5] ?? (front ? .6 : 1)];
+}
+function armArr(a) { a = a || [180, 180]; return [a[0], a[1], a[2] ?? a[1], a[3] ?? 1, a[4] ?? 1]; }
+
+function ikArm(J, s, T, bend, us, fs) {
+  const S = J['sh' + s], L1 = RIG.UA * us, L2 = (RIG.FA + RIG.HAND) * fs;
+  const dx = T[0] - S[0], dy = T[1] - S[1], d = Math.hypot(dx, dy) || .001;
+  const dd = Math.min(Math.max(d, Math.abs(L1 - L2) + .01), L1 + L2 - .01);
+  const base = Math.atan2(dy, dx);
+  const c = (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd);
+  const ea = base + (bend || 1) * Math.acos(Math.max(-1, Math.min(1, c)));
+  const E = [S[0] + L1 * Math.cos(ea), S[1] + L1 * Math.sin(ea)];
+  const fa = Math.atan2(T[1] - E[1], T[0] - E[0]);
+  J['el' + s] = E;
+  J['wr' + s] = [E[0] + RIG.FA * fs * Math.cos(fa), E[1] + RIG.FA * fs * Math.sin(fa)];
+  J['hd' + s] = [E[0] + L2 * Math.cos(fa), E[1] + L2 * Math.sin(fa)];
+}
+
+// Solve joints in pose-local space (hip at the origin). World-target arms are solved later, in place().
+function solvePose(P) {
+  const v = P.v || 's', J = {}, t = P.t || 0, ts = P.ts ?? 1;
+  J.hip = [0, 0];
+  if (P.body === 'top') {
+    // seen from above (or from the head end): shoulders as a bar over the hips, head on top
+    const ht = P.ht ?? t;
+    J.sh = J.nb = J.tc = J.nt = [0, 0];
+    J.shN = vadd(J.hip, t + 90, RIG.SHO); J.shF = vadd(J.hip, t - 90, RIG.SHO);
+    J.hipN = vadd(J.hip, ht + 90, RIG.HIPO); J.hipF = vadd(J.hip, ht - 90, RIG.HIPO);
+    J.head = vadd(J.hip, t, P.headFwd ?? 1.5);
+  } else {
+    J.nb = vadd(J.hip, t, RIG.T * ts);
+    J.sh = vadd(J.hip, t, RIG.SH_AT * ts);
+    J.tc = vadd(vadd(J.hip, t, RIG.T * ts / 2), t - 90, (P.c || 0) * 2);
+    if (v === 's') { J.shN = J.shF = J.sh; J.hipN = J.hipF = J.hip; }
+    else { J.shN = vadd(J.sh, t + 90, RIG.SHO); J.shF = vadd(J.sh, t - 90, RIG.SHO); J.hipN = vadd(J.hip, t + 90, RIG.HIPO); J.hipF = vadd(J.hip, t - 90, RIG.HIPO); }
+    const n = P.n ?? t, h = P.h ?? n;
+    J.nt = vadd(J.nb, n, RIG.NECK * (P.ns ?? 1));
+    J.head = vadd(J.nt, h, RIG.HEAD);
+  }
+  for (const s of ['N', 'F']) {
+    const l = legSpec(P, s);
+    J['kn' + s] = vadd(J['hip' + s], l[0], RIG.TH * l[3]);
+    J['an' + s] = vadd(J['kn' + s], l[1], RIG.SHIN * l[4]);
+    J['to' + s] = vadd(J['an' + s], l[2], RIG.FT * l[5]);
+    J['he' + s] = vadd(J['an' + s], l[2], -2 * l[5]);
+  }
+  const later = [];
+  for (const s of ['N', 'F']) {
+    const a = P['a' + s];
+    if (isObj(a)) { later.push(s); if (a.w) { const A = armArr(a.rest); J['el' + s] = vadd(J['sh' + s], A[0], RIG.UA); J['wr' + s] = vadd(J['el' + s], A[1], RIG.FA); J['hd' + s] = vadd(J['wr' + s], A[2], RIG.HAND); } continue; }
+    const A = armArr(a);
+    J['el' + s] = vadd(J['sh' + s], A[0], RIG.UA * A[3]);
+    J['wr' + s] = vadd(J['el' + s], A[1], RIG.FA * A[4]);
+    J['hd' + s] = vadd(J['wr' + s], A[2], RIG.HAND * A[4]);
+  }
+  for (const s of later) {
+    const a = P['a' + s];
+    if (a.w) continue;
+    const T = J[a.to], off = a.off || [0, 0];
+    ikArm(J, s, [T[0] + off[0], T[1] + off[1]], a.bend, a.us ?? 1, a.fs ?? 1);
+  }
+  return J;
+}
+function armAngles(J, s) {
+  return [angOf(J['sh' + s], J['el' + s]), angOf(J['el' + s], J['wr' + s]), angOf(J['wr' + s], J['hd' + s]),
+          dist(J['sh' + s], J['el' + s]) / RIG.UA, dist(J['el' + s], J['wr' + s]) / RIG.FA];
+}
+
+const lerp = (a, b, k) => a + (b - a) * k;
+const alerp = (a, b, k) => { const d = ((b - a) % 360 + 540) % 360 - 180; return a + d * k; };
+const LIN_KEYS = ['ts', 'c', 'ns', 'lift'];
+const DEF = {ts: 1, c: 0, ns: 1, lift: 0};
+function lerpPose(A, B, k, JA, JB) {
+  const P = {...B};
+  const nA = A.n ?? A.t ?? 0, nB = B.n ?? B.t ?? 0;
+  P.t = alerp(A.t ?? 0, B.t ?? 0, k);
+  P.n = alerp(nA, nB, k);
+  P.h = alerp(A.h ?? nA, B.h ?? nB, k);
+  P.ht = alerp(A.ht ?? A.t ?? 0, B.ht ?? B.t ?? 0, k);
+  if (A.noseFront !== B.noseFront) P.noseFront = k > .5 ? B.noseFront : A.noseFront;
+  if (A.look || B.look) { const la = A.look || [0, 0], lb = B.look || [0, 0]; P.look = [lerp(la[0], lb[0], k), lerp(la[1], lb[1], k)]; }
+  for (const key of LIN_KEYS) P[key] = lerp(A[key] ?? DEF[key], B[key] ?? DEF[key], k);
+  for (const s of ['N', 'F']) {
+    const la = legSpec(A, s), lb = legSpec(B, s);
+    P['l' + s] = la.map((x, i) => i < 3 && !A.raw ? alerp(x, lb[i], k) : lerp(x, lb[i], k));
+    const a = A['a' + s], b = B['a' + s];
+    if ((isObj(a) && a.w) || (isObj(b) && b.w)) {
+      const w = (isObj(a) && a.w) ? a : b;
+      P['a' + s] = {...w, us: lerp(a?.us ?? 1, b?.us ?? 1, k), fs: lerp(a?.fs ?? 1, b?.fs ?? 1, k)};
+    } else if (isObj(a) && isObj(b) && a.to === b.to) {
+      const oa = a.off || [0, 0], ob = b.off || [0, 0];
+      P['a' + s] = {...b, off: [lerp(oa[0], ob[0], k), lerp(oa[1], ob[1], k)], us: lerp(a.us ?? 1, b.us ?? 1, k), fs: lerp(a.fs ?? 1, b.fs ?? 1, k)};
+    } else {
+      const xa = isObj(a) ? armAngles(JA, s) : armArr(a), xb = isObj(b) ? armAngles(JB, s) : armArr(b);
+      P['a' + s] = xa.map((x, i) => i < 3 ? alerp(x, xb[i], k) : lerp(x, xb[i], k));
+    }
+  }
+  return P;
+}
+
+const CONTACTS = ['anN', 'anF', 'toN', 'toF', 'heN', 'heF', 'knN', 'knF', 'hip', 'hdN', 'hdF', 'nb', 'head'];
+function worldArmKeys(P) { const k = []; for (const s of ['N', 'F']) { if (isObj(P['a' + s]) && P['a' + s].w) k.push('el' + s, 'wr' + s, 'hd' + s); if (P.noLegs) k.push('kn' + s, 'an' + s, 'to' + s, 'he' + s); } return k; }
+
+// Place a solved pose into the 160×106 frame. With ctx, keep ctx.anchor where the finished stretch has it.
+function place(P, J, ctx) {
+  const skip = new Set(worldArmKeys(P));
+  const pts = Object.entries(J).filter(([k]) => !skip.has(k)).map(e => e[1]);
+  if (P.body !== 'top') pts.push([J.head[0], J.head[1] + RIG.HEAD - 1.2]);
+  let dx, dy;
+  if (!ctx) {
+    const minX = Math.min(...pts.map(p => p[0])), maxX = Math.max(...pts.map(p => p[0]));
+    const minY = Math.min(...pts.map(p => p[1]), J.head[1] - RIG.HEAD), maxY = Math.max(...pts.map(p => p[1]));
+    dx = 80 - (minX + maxX) / 2 + (P.dx || 0);
+    dy = P.top ? 53 - (minY + maxY) / 2 : 100 - (maxY + 3.4) - (P.lift || 0);
+  } else {
+    const A = ctx.anchor, W = ctx.Jw[A];
+    dx = W[0] - J[A][0];
+    dy = (P.top || P.fixY) ? W[1] - J[A][1] : 100 - (Math.max(...pts.map(p => p[1])) + 3.4) - (P.lift || 0);
+  }
+  for (const s of ['N', 'F']) {
+    const a = P['a' + s];
+    if (isObj(a) && a.w && ctx) {
+      const T = ctx.Jw[a.w], off = a.off || [0, 0];
+      ikArm(J, s, [T[0] + off[0] - dx, T[1] + off[1] - dy], a.bend, a.us ?? 1, a.fs ?? 1);
+    }
+  }
+  const out = {};
+  for (const k in J) out[k] = [J[k][0] + dx, J[k][1] + dy];
+  return out;
+}
+
+// ---- per-stretch animation cache
+const TOONCACHE = {};
+function framePose(C, k) {
+  if (k >= 1) return C.E;
+  if (C.V) return k < .5 ? lerpPose(C.S, C.V, k * 2, C.JS, C.JV) : lerpPose(C.V, C.E, (k - .5) * 2, C.JV, C.JE);
+  return lerpPose(C.S, C.E, k, C.JS, C.JE);
+}
+function frameJoints(C, k) {
+  if (k >= 1) return C.Jw;
+  const P = framePose(C, k);
+  return place(P, solvePose(P), C);
+}
+function toonSetup(id) {
+  if (TOONCACHE[id]) return TOONCACHE[id];
+  const E = POSES[id];
+  if (!E) return null;
+  const S = {...E, ...((typeof FROM !== 'undefined' && FROM[id]) || {})};
+  const JE = solvePose(E), JS = solvePose(S);
+  const Jw = place(E, solvePose(E), null);
+  const anchor = E.anchor || (E.top ? 'hip' : CONTACTS.reduce((best, k) => (Jw[k] && (!best || Jw[k][1] > Jw[best][1] + .5)) ? k : best, null));
+  const C = {E, S, JE, JS, Jw, anchor};
+  const via = typeof VIA !== 'undefined' && VIA[id];
+  if (via) { C.V = {...lerpPose(S, E, .5, JS, JE), ...via}; C.JV = solvePose(C.V); }
+  // keep the setup pose inside the frame as well
+  const Js = frameJoints(C, 0);
+  const xs = [...Object.values(Jw), ...Object.values(Js)].map(p => p[0]);
+  const shift = 80 - (Math.min(...xs) + Math.max(...xs)) / 2;
+  if (Math.abs(shift) > .5) for (const k in Jw) Jw[k] = [Jw[k][0] + shift, Jw[k][1]];
+  return (TOONCACHE[id] = C);
+}
+
+function drawFigure(P, J, hla) {
+  const front = (P.v || 's') !== 's', topBody = P.body === 'top';
+  const hl = new Set(P.hl || []);
+  const op = x => R2(Math.max(0, Math.min(1, x)) * 100) / 100;
+  const HALO = 2.6;
+  const dP = ps => 'M' + ps.map(p => R2(p[0]) + ' ' + R2(p[1])).join('L');
+  const L = (a, b, w, c, h = 1) => (h ? `<path d="${dP([a, b])}" stroke-width="${w + HALO}" class="halo"/>` : '') + `<path d="${dP([a, b])}" stroke-width="${w}" class="${c}"/>`;
+  const PL = (ps, w, c, h = 1) => (h ? `<path d="${dP(ps)}" stroke-width="${w + HALO}" class="halo"/>` : '') + `<path d="${dP(ps)}" stroke-width="${w}" class="${c}"/>`;
+  const farSet = new Set(P.farLimbs || []);
+  const far = (s, limb) => ((s === 'F' && !front && !topBody) || (limb && farSet.has(limb + s)) ? ' far' : '');
+  // a body part in base colour, with the stretch colour faded in by hla
+  const part = (key, s, fn, limb) => {
+    const f = far(s, limb);
+    if (!hl.has(key) || hla <= 0) return fn('fg' + f, 1);
+    if (hla >= 1) return fn('hl' + f, 1);
+    return fn('fg' + f, 1) + `<g opacity="${op(hla)}">${fn('hl' + f, 0)}</g>`;
+  };
+  const arm = s => P.noArms ? '' : part('ua' + s, s, (c, h) => L(J['sh' + s], J['el' + s], WID.ua, c, h), 'a') + part('fa' + s, s, (c, h) => PL([J['el' + s], J['wr' + s], J['hd' + s]], WID.fa, c, h), 'a');
+  const leg = s => P.noLegs ? '' : part('th' + s, s, (c, h) => L(J['hip' + s], J['kn' + s], WID.th, c, h), 'l') + part('sh' + s, s, (c, h) => L(J['kn' + s], J['an' + s], WID.sh, c, h), 'l') + part('ft' + s, s, (c, h) => L(J['he' + s], J['to' + s], WID.ft, c, h), 'l');
+  const blob = (key, p, r, s) => hl.has(key) && hla > 0 ? `<circle cx="${R2(p[0])}" cy="${R2(p[1])}" r="${r}" class="hlb${far(s)}" opacity="${op(hla)}"/>` : '';
+  const t = P.t || 0, h = P.h ?? P.n ?? t;
+  const circ = (p, r, c) => `<circle cx="${R2(p[0])}" cy="${R2(p[1])}" r="${r}" class="${c}"/>`;
+  // head with face cues: nose in side view, eyes when the face points at the viewer, ears front/back
+  const headR = topBody ? 7.4 : RIG.HEAD;
+  let head = circ(J.head, headR + HALO / 2, 'haloF') + circ(J.head, headR, 'headc');
+  if (topBody) head += circ(vadd(J.head, t, 7), 2.3, 'headc');
+  else if (front || P.face === 'front') {
+    const hd = front ? h : (P.faceTilt || 0);
+    for (const sgn of [1, -1]) head = circ(vadd(J.head, hd + 90 * sgn, 7.3), 1.8, 'headc') + head;
+    if (P.noseFront != null) head = circ(vadd(J.head, P.noseFront, 7.2), 2.1, 'headc') + head;
+    if (!P.back) {
+      const lk = P.look || [0, 0];
+      for (const sgn of [1, -1]) { const e = vadd(vadd(J.head, hd + 90 * sgn, 2.7), hd, .9); head += circ([e[0] + lk[0], e[1] + lk[1]], 1.15, 'eye'); }
+    }
+  } else if (P.face !== 'none') head = circ(vadd(J.head, h + 90, 7.1), 2, 'headc') + head;
+  let torso, neck = '';
+  if (topBody) {
+    torso = part('torsoU', 'N', (c, hh) => L(J.shF, J.shN, 12.5, c, hh));
+  } else if (!front) {
+    const A = J.hip, C = J.tc, B = J.nb;
+    const m1 = [(A[0] + C[0]) / 2, (A[1] + C[1]) / 2], m2 = [(C[0] + B[0]) / 2, (C[1] + B[1]) / 2], M = [(m1[0] + m2[0]) / 2, (m1[1] + m2[1]) / 2];
+    const q = (p, cc, e) => `M${R2(p[0])} ${R2(p[1])}Q${R2(cc[0])} ${R2(cc[1])} ${R2(e[0])} ${R2(e[1])}`;
+    const seg = (p, cc, e, key) => part(key, 'N', (c, hh) => (hh ? `<path d="${q(p, cc, e)}" stroke-width="${WID.torso + HALO}" class="halo"/>` : '') + `<path d="${q(p, cc, e)}" stroke-width="${WID.torso}" class="${c}"/>`);
+    torso = seg(A, m1, M, 'torsoL') + seg(M, m2, B, 'torsoU');
+  } else {
+    const mN = [(J.shN[0] + J.hipN[0]) / 2, (J.shN[1] + J.hipN[1]) / 2], mF = [(J.shF[0] + J.hipF[0]) / 2, (J.shF[1] + J.hipF[1]) / 2];
+    const qd = (ps, key) => part(key, 'N', (c, hh) => (hh ? `<path d="${dP(ps)}Z" stroke-width="${6 + HALO}" class="halo"/>` : '') + `<path d="${dP(ps)}Z" stroke-width="6" class="${c} fill"/>`);
+    torso = qd([J.shN, J.shF, mF, mN], 'torsoU') + qd([mN, mF, J.hipF, J.hipN], 'torsoL');
+    for (const s of ['N', 'F']) if (hl.has('side' + s) && hla > 0) torso += `<g opacity="${op(hla)}">${L(J['sh' + s], J['hip' + s], 5, 'hl', 0)}</g>`;
+    for (const s of ['N', 'F']) if (hl.has('trap' + s) && hla > 0) torso += `<g opacity="${op(hla)}">${L(J.nb, J['sh' + s], 6, 'hl', 0)}</g>`;
+  }
+  if (!topBody) neck = part('neck', 'N', (c, hh) => L(J.nb, J.nt, WID.neck, c, hh));
+  let neckSide = '';
+  for (const [s, sgn] of [['N', 1], ['F', -1]]) if (hl.has('neckSide' + s) && hla > 0) {
+    const a = vadd(J.nb, t + 90 * sgn, 3.2), b = vadd(J.head, h + 180 - 52 * sgn, 6.6);
+    neckSide += `<g opacity="${op(hla)}">${L(a, b, 3.4, 'hl', 0)}</g>`;
+  }
+  const behind = new Set(P.behind || []);
+  const fig = [];
+  if (topBody) {
+    for (const s of ['F', 'N']) fig.push(leg(s));
+    for (const s of ['N', 'F']) if (behind.has('a' + s)) fig.push(arm(s));
+    fig.push(torso, head);
+    for (const s of ['N', 'F']) { const bp = vadd(J['hip' + s], (P.ht ?? t) + (s === 'N' ? 90 : -90), 7); fig.push(blob('glute' + s, bp, 5.6, s), blob('hip' + s, bp, 5.6, s)); }
+    for (const s of ['N', 'F']) if (!behind.has('a' + s)) fig.push(arm(s));
+    for (const s of ['N', 'F']) fig.push(blob('shoulder' + s, J['sh' + s], 5, s));
+  } else if (!front) {
+    fig.push(arm('F'), blob('shoulderF', J.shF, 5, 'F'), leg('F'), blob('gluteF', vadd(J.hip, t - 90, 3), 6.2, 'F'));
+    fig.push(torso, neck, head, leg('N'));
+    fig.push(blob('gluteN', vadd(J.hip, t - 90, 3.2), 6.4, 'N'), blob('hipN', vadd(J.hip, t + 90, 2.6), 5.8, 'N'));
+    fig.push(arm('N'), blob('shoulderN', J.shN, 5, 'N'));
+  } else {
+    for (const s of ['N', 'F']) if (behind.has('a' + s)) fig.push(arm(s));
+    for (const s of ['N', 'F']) if (behind.has('l' + s)) fig.push(leg(s));
+    fig.push(torso);
+    for (const s of ['N', 'F']) if (!behind.has('l' + s)) fig.push(leg(s));
+    fig.push(neck, head, neckSide);
+    for (const s of ['N', 'F']) fig.push(blob('hip' + s, J['hip' + s], 5.6, s), blob('glute' + s, J['hip' + s], 5.6, s));
+    for (const s of ['N', 'F']) if (!behind.has('a' + s)) fig.push(arm(s));
+    for (const s of ['N', 'F']) fig.push(blob('shoulder' + s, J['sh' + s], 5, s));
+  }
+  return fig.join('');
+}
+
+function drawProps(list, alpha) {
+  const F = 100, back = [], front = [];
+  for (const pr of list) {
+    const [k, ...a] = pr;
+    if (k === 'wall') back.push(`<rect x="${R2(a[0])}" y="-60" width="5" height="${R2(F + 60)}" class="prop"/>`);
+    else if (k === 'rect') back.push(`<rect x="${R2(a[0])}" y="${R2(a[1])}" width="${R2(a[2])}" height="${R2(a[3])}" rx="1" class="prop"/>`);
+    else if (k === 'seg') back.push(`<path d="M${R2(a[0][0])} ${R2(a[0][1])}L${R2(a[1][0])} ${R2(a[1][1])}" class="pline jamb"/>`);
+    else if (k === 'post') back.push(`<rect x="${R2(a[0] - 2)}" y="${R2(a[1] ?? 10)}" width="4" height="${R2(F - (a[1] ?? 10))}" class="prop"/>`);
+    else if (k === 'chair') { const [xb, xf, y] = a; back.push(`<path d="M${R2(xb)} ${R2(y - 26)}V${F}M${R2(xf)} ${R2(y)}V${F}" class="pline"/><rect x="${R2(Math.min(xb, xf) - 1)}" y="${R2(y)}" width="${R2(Math.abs(xf - xb) + 2)}" height="3.5" rx="1.5" class="prop"/>`); }
+    else if (k === 'chairF') { const [x1, x2, y] = a; back.push(`<path d="M${R2(x1 + 1)} ${R2(y)}V${F}M${R2(x2 - 1)} ${R2(y)}V${F}" class="pline"/><rect x="${R2(x1 - 2)}" y="${R2(y - 22)}" width="${R2(x2 - x1 + 4)}" height="22" rx="2" class="prop soft"/><rect x="${R2(x1)}" y="${R2(y)}" width="${R2(x2 - x1)}" height="3.5" rx="1.5" class="prop"/>`); }
+    else if (k === 'box') { const [x1, x2, y] = a; back.push(`<rect x="${R2(x1)}" y="${R2(y)}" width="${R2(x2 - x1)}" height="${R2(F - y)}" rx="1.5" class="prop"/>`); }
+    else if (k === 'bar') { const [x1, x2, y] = a; back.push(`<path d="M${R2(x1)} ${R2(y)}H${R2(x2)}" class="pline thick"/>`); }
+    else if (k === 'roller') { const [x1, x2] = a; back.push(`<rect x="${R2(x1)}" y="${F - 8}" width="${R2(x2 - x1)}" height="8" rx="4" class="prop"/>`); }
+    else if (k === 'matP') { const [cx, w1, w2, yb] = a; back.push(`<path d="M${R2(cx - w1)} 100.8L${R2(cx + w1)} 100.8L${R2(cx + w2)} ${R2(yb)}L${R2(cx - w2)} ${R2(yb)}Z" class="mat"/>`); }
+    else if (k === 'pad') { const [x1, x2, h = 3.5] = a; back.push(`<rect x="${R2(x1)}" y="${R2(F - h)}" width="${R2(x2 - x1)}" height="${h}" rx="1.75" class="prop"/>`); }
+    else if (k === 'strap') front.push(`<path d="M${R2(a[0][0])} ${R2(a[0][1])}L${R2(a[1][0])} ${R2(a[1][1])}" class="strap"/>`);
+    else if (k === 'towel') front.push(`<path d="M${R2(a[0][0])} ${R2(a[0][1])}L${R2(a[1][0])} ${R2(a[1][1])}" class="strap towel"/>`);
+    else if (k === 'strapB') back.push(`<path d="M${R2(a[0][0])} ${R2(a[0][1])}L${R2(a[1][0])} ${R2(a[1][1])}" class="strap"/>`);
+    else if (k === 'arrow' && alpha > .02) { const [p1, c, p2] = a; front.push(`<path d="M${R2(p1[0])} ${R2(p1[1])}Q${R2(c[0])} ${R2(c[1])} ${R2(p2[0])} ${R2(p2[1])}" class="arrow" marker-end="url(#ah)" opacity="${R2(alpha * 100) / 100}"/>`); }
+  }
+  return {back: back.join(''), front: front.join('')};
+}
+
+// k: 0 = setup pose, 1 = the stretch. Returns the inner SVG markup.
+function toonInner(id, k) {
+  const C = toonSetup(id);
+  if (!C) return '';
+  const E = C.E;
+  const J = frameJoints(C, k);
+  const P = framePose(C, k);
+  const all = E.props ? E.props(C.Jw) : [];
+  const dyn = E.props ? E.props(J).filter(p => p[0] === 'strap' || p[0] === 'strapB' || p[0] === 'towel') : [];
+  const stat = all.filter(p => p[0] !== 'strap' && p[0] !== 'strapB' && p[0] !== 'towel');
+  const pr = drawProps([...stat, ...dyn], Math.max(0, (k - .6) / .4));
+  let floor;
+  if (E.top && E.noMat) floor = '';
+  else if (E.top) {
+    if (!C.mat) {
+      const pts = [...Object.values(C.Jw), ...Object.values(frameJoints(C, 0)), ...Object.values(frameJoints(C, .5))];
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      C.mat = `<rect x="${R2(Math.min(...xs) - 12)}" y="${R2(Math.min(...ys) - 10)}" width="${R2(Math.max(...xs) - Math.min(...xs) + 24)}" height="${R2(Math.max(...ys) - Math.min(...ys) + 20)}" rx="8" class="mat"/>`;
+    }
+    floor = C.mat;
+  } else floor = `<path d="M-60 100.8H220" class="floor"/>`;
+  let cap = '';
+  const [vx, vy, vw] = vbOf(E), z = 160 / vw;
+  const capChip = (txt, a) => {
+    if (!txt || a <= .02) return '';
+    const fs = 7.2 / z, w = (txt.length * 3.75 + 9) / z, h = 11 / z, x = vx + vw - w - 3 / z, y = vy + 3 / z;
+    return `<g opacity="${R2(Math.min(1, a) * 100) / 100}"><rect x="${R2(x)}" y="${R2(y)}" width="${R2(w)}" height="${R2(h)}" rx="${R2(5.5 / z)}" class="capbg"/><text x="${R2(x + w / 2)}" y="${R2(y + h / 2 + .3 / z)}" font-size="${R2(fs)}" class="capt">${txt}</text></g>`;
+  };
+  if (E.cap0) cap += capChip(E.cap0, 1 - k / .45);
+  if (E.cap) cap += capChip(E.cap, E.cap0 ? (k - .55) / .35 : 1);
+  return floor + pr.back + `<g class="body">${drawFigure(P, J, k)}</g>` + pr.front + cap;
+}
+function vbOf(E) {
+  const z = ((E && E.zoom) || 1) * (E && (E.cap || E.cap0) && !E.top ? .86 : 1);
+  return [80 - 80 / z, E && E.top ? 53 - 53 / z : 106 - 106 / z, 160 / z, 106 / z];
+}
+function toonVB(id) { return vbOf(POSES[id]).map(R2).join(' '); }
+function toonSVG(id, k = 1, label = '') {
+  return `<svg viewBox="${toonVB(id)}" class="toon" role="img" aria-label="${label.replace(/"/g, '')}">${toonInner(id, k)}</svg>`;
+}
+// One loop: hold the setup, ease into the stretch, hold it, ease back out.
+const LOOP = {hold0: 700, inn: 1500, hold1: 1700, out: 1100};
+LOOP.total = LOOP.hold0 + LOOP.inn + LOOP.hold1 + LOOP.out;
+const easeIO = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+function loopK(ms) {
+  let t = ms % LOOP.total;
+  if (t < LOOP.hold0) return 0; t -= LOOP.hold0;
+  if (t < LOOP.inn) return easeIO(t / LOOP.inn); t -= LOOP.inn;
+  if (t < LOOP.hold1) return 1; t -= LOOP.hold1;
+  return 1 - easeIO(t / LOOP.out);
+}
+
+// ---------- One cartoon pose per stretch ----------
+const chairS = J => ['chair', J.hip[0] - 8, J.hip[0] + 13, J.hip[1] + 5];
+const chairF = J => ['chairF', J.hip[0] - 15, J.hip[0] + 15, J.hip[1] + 4.5];
+const SEAT_F = {lN: [178, 180, 120, .3], lF: [182, 180, 240, .3]};
+const SEAT_S = {lN: [90, 180, 90], lF: [87, 183, 90]};
+const QUAD_LEGS = {lN: [180, 270, 270], lF: [178, 270, 270]};
+const SUP = {t: 270, n: 270, h: 270, anchor: 'hip'};
+
+const POSES = {
+ 'upper-trap': {v: 'f', n: 24, h: 32, aF: [184, 180], aN: [25, 285], ...SEAT_F, hl: ['neckSideF', 'trapF'], props: J => [chairF(J)]},
+ 'levator': {v: 'f', n: 30, h: 70, ns: .8, look: [1, 1.3], aF: [184, 180], aN: [18, 282], ...SEAT_F, hl: ['neckSideF', 'trapF'], cap: 'nose toward the armpit', props: J => [chairF(J)]},
+ 'scalenes': {v: 'f', n: 26, h: 14, look: [0, -1.2], aN: [205, 300], aF: [184, 180], ...SEAT_F, hl: ['neckSideF'], cap: 'hand holds the collarbone', props: J => [chairF(J)]},
+ 'scm': {v: 'f', n: 30, h: 22, look: [-2.6, -2.6], noseFront: 300, aN: [172, 178], aF: [188, 182], ...SEAT_F, hl: ['neckSideF'], cap: 'ear down, then chin up and away',
+   props: J => [chairF(J), ['arrow', [J.head[0] - 2, J.head[1] + 11], [J.head[0] - 16, J.head[1] + 6], [J.head[0] - 13, J.head[1] - 9]]]},
+ 'chin-tuck': {t: 0, n: 30, h: 110, aN: [165, 120, null, 1, .8], aF: [163, 118, null, 1, .8], ...SEAT_S, hl: ['neck'], props: J => [chairS(J), ['arrow', [J.head[0] + 6, J.head[1] - 10], [J.head[0] + 15, J.head[1] - 4], [J.head[0] + 12, J.head[1] + 8]]]},
+ 'cross-body': {v: 'f', aF: [92, 92], aN: {to: 'elF', off: [4, 1], bend: 1}, hl: ['shoulderF', 'uaF']},
+ 'sleeper': {...SUP, face: 'front', n: 282, h: 292, aN: [160, 50, 50, .35, 1.15], aF: {to: 'wrN', off: [0, -1], bend: 1}, lN: [92, 180, 270, 1, .12], lF: [95, 182, 270, 1, .12], hl: ['shoulderN', 'faN'], cap: 'press the forearm down',
+   props: J => [['pad', J.head[0] - 10, J.head[0] + 8, 5], ['arrow', [J.hdN[0] + 2, J.hdN[1] - 4], [J.hdN[0] + 12, J.hdN[1] - 4], [J.hdN[0] + 14, J.hdN[1] + 6]]]},
+ 'doorway-er': {aN: [180, 90, 90, 1, .6], aF: [180, 180], hl: ['shoulderN'], cap: 'turn your body away from the hand',
+   props: J => [['post', J.hdN[0] + 4, 8], ['arrow', [J.sh[0] + 8, J.sh[1] + 7], [J.sh[0], J.sh[1] + 17], [J.sh[0] - 9, J.sh[1] + 7]]]},
+ 'towel-ir': {v: 'f', back: 1, aF: {to: 'sh', off: [-1.5, -2], bend: -1}, aN: {to: 'tc', off: [1.5, -5], bend: -1}, hl: ['shoulderN', 'uaF'], cap: 'seen from behind: pull the towel up', props: J => [['towel', [J.hdF[0] + .5, J.hdF[1] - 9], [J.hdN[0] - .5, J.hdN[1] + 10]]]},
+ 'hands-behind': {t: -10, c: -4, n: -8, h: -14, aN: [228, 218], aF: [228, 218], hl: ['torsoU', 'uaN', 'shoulderN'], cap: 'clasp hands behind, lift'},
+ 'behind-back-pull': {v: 'f', n: 18, h: 22, behind: ['aN', 'aF'], farLimbs: ['aN', 'aF'], aF: [160, 112], aN: {to: 'wrF', off: [0, 0], bend: -1}, hl: ['shoulderF', 'neckSideF'], cap: 'hands behind your back'},
+ 'thread-needle': {t: 118, n: 150, h: 180, aF: [120, 200, 90, .9, .75], aN: [200, 268, 270, .8, .9], ...QUAD_LEGS, hl: ['shoulderN', 'torsoU'], cap: 'arm slides under the chest'},
+ 'doorway-pec': {noArms: 0, zoom: 1.7, v: 'f', top: 1, body: 'top', noMat: 1, noLegs: 1, anchor: 'hdN', fixY: 1, t: 0, aN: [113, 113, 113, 1.1, .15], aF: [247, 247, 247, 1.1, .15], hl: ['torsoU', 'shoulderN', 'shoulderF'], cap: 'elbows at shoulder height',
+   props: J => [['rect', J.hdN[0] + 1, J.hdN[1] - 3.5, 40, 7], ['rect', J.hdF[0] - 41, J.hdF[1] - 3.5, 40, 7], ['arrow', [J.hip[0], J.hip[1] + 16], [J.hip[0] + 1, J.hip[1] + 8], [J.hip[0], J.hip[1] + 3]]]},
+ 'high-doorway': {noArms: 0, zoom: 1.7, v: 'f', top: 1, body: 'top', noMat: 1, noLegs: 1, anchor: 'hdN', fixY: 1, t: 0, aN: [113, 113, 113, 1.1, .15], aF: [247, 247, 247, 1.1, .15], hl: ['torsoU', 'shoulderN', 'shoulderF'], cap: 'forearms high on the frame',
+   props: J => [['rect', J.hdN[0] + 1, J.hdN[1] - 3.5, 40, 7], ['rect', J.hdF[0] - 41, J.hdF[1] - 3.5, 40, 7], ['arrow', [J.hip[0], J.hip[1] + 16], [J.hip[0] + 1, J.hip[1] + 8], [J.hip[0], J.hip[1] + 3]]]},
+ 'roller-chest': {...SUP, lN: [62, 178, 90], lF: [66, 176, 90], aN: [178, 205, null, .55, .6], aF: [184, 210, null, .5, .55], hl: ['torsoU', 'shoulderN'],
+   props: J => [['roller', J.head[0] - 6, J.hip[0] + 6]]},
+ 'open-book': {...SUP, face: 'front', n: 275, h: 280, aF: [178, 178, null, .3, .3], aN: [352, 352, null, .55, .55], farLimbs: [], lN: [95, 185, 270, .9, .3], lF: [97, 188, 270, .9, .3], hl: ['torsoU', 'shoulderN'], cap: 'top arm opens back behind you',
+   props: J => [['pad', J.head[0] - 10, J.head[0] + 8, 4], ['arrow', [J.sh[0] + 6, J.sh[1] - 4], [J.sh[0] + 12, J.sh[1] - 26], [J.sh[0] + 1, J.sh[1] - 20]]]},
+ 'side-childs': {t: 96, n: 105, h: 105, aN: [112, 96, 90], aF: [114, 97, 90], lN: [118, 270, 270], lF: [120, 270, 270], anchor: 'knN', hl: ['torsoU', 'torsoL', 'uaN'], cap: 'walk both hands over to one side'},
+ 'bench-lat': {t: 104, c: 2, n: 125, h: 178, ns: .5, aN: [82, 256, null, 1, .8], aF: [85, 254, null, 1, .8], lN: [160, 270, 270], lF: [162, 270, 270], anchor: 'knN', hl: ['uaN', 'torsoU'],
+   props: J => [['box', Math.max(J.elN[0] - 4, J.head[0] + 8.5), J.elN[0] + 18, J.elN[1] + 3.6]]},
+
+ 'wall-biceps': {aN: [272, 272, 0], aF: [180, 180], hl: ['uaN', 'shoulderN'], cap: 'turn your chest away from the wall',
+   props: J => [['wall', J.hdN[0] - 6, 10], ['arrow', [J.sh[0] + 8, J.sh[1] + 7], [J.sh[0], J.sh[1] + 17], [J.sh[0] - 9, J.sh[1] + 7]]]},
+ 'floor-biceps': {t: -18, aN: [205, 205, 270], aF: [208, 208, 270], lN: [40, 160, 90], lF: [43, 158, 90], hl: ['uaN', 'shoulderN']},
+ 'overhead-triceps': {n: 6, h: 10, aN: [2, 192], aF: {to: 'elN', off: [1, -1], bend: 1}, hl: ['uaN']},
+ 'wrist-flexor': {aN: [90, 90, 165], aF: {to: 'hdN', off: [1, -2], bend: 1}, hl: ['faN'], cap0: 'palm facing up', cap: 'pull the fingers back'},
+ 'wrist-extensor': {aN: [90, 92, 178], aF: {to: 'hdN', off: [2, -3], bend: 1}, hl: ['faN'], cap0: 'palm facing down', cap: 'press the hand down'},
+ 'prayer': {v: 'f', aN: [142, 282, 0], aF: [218, 78, 0], hl: ['faN', 'faF'], cap: 'palms together, lower the hands'},
+ 'kneel-wrist': {t: 85, n: 95, h: 100, aN: [195, 195, 270, .92, .92], aF: [197, 197, 270, .92, .92], lN: [160, 270, 270], lF: [158, 270, 270], anchor: 'knN', hl: ['faN'], cap: 'fingers point to the knees'},
+
+ 'sphinx': {anchor: 'hip', t: 58, n: 30, h: 40, aN: [180, 90, 90], aF: [182, 92, 90], lN: [268, 270, 270], lF: [270, 272, 270], hl: ['torsoL']},
+ 'side-bend': {v: 'f', zoom: .86, t: 20, aF: [25, 50], aN: [15, 335, null, 1, .45], hl: ['sideF', 'torsoL']},
+ 'supine-twist': {zoom: 1.3, v: 'f', top: 1, anchor: 'hip', t: 270, aN: [0, 0], aF: [180, 180], lF: [90, 90, 90], lN: [135, 222], hl: ['torsoL', 'hipN'],
+   props: J => [['arrow', [J.hipN[0] + 13, J.hipN[1] - 8], [J.hipN[0] + 24, J.hipN[1] + 6], [J.knN[0] + 3, J.knN[1] + 2]]]},
+ 'camel': {t: -40, c: -8, n: -50, h: -55, aN: {to: 'heN', off: [0, -2], bend: 1}, aF: {to: 'heF', off: [0, -2], bend: 1}, lN: [198, 270, 0], lF: [196, 270, 0], anchor: 'knN', hl: ['torsoL', 'thN', 'hipN'], cap: 'hips forward, chest up, hands to heels'},
+
+ 'childs': {t: 96, n: 105, h: 105, aN: [112, 96, 90], aF: [114, 97, 90], lN: [118, 270, 270], lF: [120, 270, 270], anchor: 'knN', hl: ['torsoU', 'uaN']},
+ 'bar-hang': {zoom: .88, aN: [2, 0, 0], aF: [358, 0, 0], lN: [165, 200, 90], lF: [168, 198, 90], hl: ['torsoU', 'uaN'],
+   props: J => [['bar', J.hdN[0] - 16, J.hdN[0] + 16, J.hdN[1] - 1]]},
+ 'upper-round': {t: 12, c: 6, n: 70, h: 140, aN: [90, 90], aF: [88, 92], ...SEAT_S, hl: ['torsoU'], props: J => [chairS(J)]},
+ 'cat-cow': {t: 92, c: 7, n: 150, h: 172, aN: [180, 180, 90, .8, .8], aF: [182, 180, 90, .8, .8], ...QUAD_LEGS, hl: ['torsoL', 'torsoU']},
+ 'post-pull': {t: 65, c: 6, n: 90, h: 120, aN: [95, 95], aF: [97, 96], lN: [140, 200, 90], lF: [138, 198, 90], hl: ['torsoU'], props: J => [['post', J.hdN[0] + 3, 10]]},
+
+ 'knees-chest': {...SUP, lN: [318, 50, 140], lF: [330, 66, 150], aN: {to: 'knN', off: [3, 3], bend: -1}, aF: {to: 'knF', off: [3, 4], bend: -1}, hl: ['torsoL', 'gluteN'], cap: 'hug both knees'},
+ 'crossover-bend': {v: 'f', t: 12, aF: [20, 50], aN: [170, 175], lF: [168, 182, 240], lN: [186, 180, 120], behind: ['lF'], farLimbs: ['lF'], hl: ['sideF', 'hipF']},
+ 'forward-fold': {t: 54, c: 4, n: 70, h: 95, aN: {to: 'anN', off: [-3, -3], bend: -1}, aF: {to: 'anF', off: [-3, -3], bend: -1}, lN: [90, 90, 0], lF: [91, 91, 0], anchor: 'hip', hl: ['thN', 'torsoL']},
+
+ 'figure-4': {...SUP, lF: [345, 80, 0], lN: [30, 280, 280, .6, .8], aN: [25, 40], aF: [28, 45], hl: ['gluteN'], cap: 'ankle over the knee, pull the thigh in'},
+ 'knee-drop': {zoom: 1.4, v: 'f', top: 1, anchor: 'hip', t: 270, aN: [40, 40], aF: [140, 140], lN: [120, 60, 90], lF: [140, 70, 90], hl: ['gluteN'], cap: 'knees fall to one side, feet stay',
+   props: J => [['arrow', [J.hip[0] + 18, J.hip[1] - 10], [J.hip[0] + 30, J.hip[1] - 2], [J.knN[0] + 1, J.knN[1] - 4]]]},
+ 'knee-shoulder': {...SUP, lN: [322, 110], lF: [90, 90, 0], aN: {to: 'knN', off: [2, -2], bend: -1}, aF: {to: 'knN', off: [3, 0], bend: -1}, hl: ['gluteN'], cap: 'knee toward the opposite shoulder'},
+ 'ninety-ninety': {noArms: 1, zoom: 1.6, v: 'f', top: 1, body: 'top', anchor: 'hip', t: 40, ht: 0, lF: [0, 90, 90, .9, .9, .6], lN: [90, 180, 180, .9, .9, .6], aN: [150, 150, null, .35, .35], aF: [210, 210, null, .35, .35], hl: ['gluteN'], cap: 'front shin across, back knee out'},
+ 'chair-glute': {v: 'f', ts: .8, n: 4, h: 4, lN: [178, 180, 120, .3], lF: [215, 80, 60, .55, .9, .5], aN: {to: 'anF', off: [2, -1], bend: -1}, aF: {to: 'knF', off: [3, -1], bend: 1}, hl: ['gluteF'], props: J => [chairF(J)]},
+ 'pigeon': {t: 68, c: 4, n: 80, h: 100, lN: [95, 248, 270, 1, .55], lF: [262, 266, 270], aN: [150, 118, 90, .8, .85], aF: [154, 122, 90, .8, .85], anchor: 'knF', hl: ['gluteN']},
+ 'seated-twist': {t: 0, h: -15, lF: [90, 90, 0], lN: [40, 165, 90], aF: [130, 30, null, .9, .6], aN: [215, 185, 90, 1, .9], anchor: 'hip', hl: ['gluteN', 'torsoL'], cap: 'twist toward the bent knee'},
+ 'half-kneel': {t: -4, aN: [350, 355], aF: [150, 120], lN: [196, 270, 270], lF: [90, 180, 90], anchor: 'knN', hl: ['hipN', 'thN'], props: J => [['pad', J.knN[0] - 6, J.knN[0] + 6]]},
+ 'high-lunge': {zoom: .9, t: 0, anchor: 'anF', aN: [10, 5], aF: [14, 8], lF: [115, 172, 90], lN: [222, 222, 120, 1, 1, .9], hl: ['hipN', 'thN']},
+ 'standing-tfl': {v: 'f', t: 8, aF: [255, 260, 260], aN: [175, 180], lF: [165, 180, 240], lN: [190, 182, 120], behind: ['lF'], farLimbs: ['lF'], hl: ['hipF'], props: J => [['wall', J.hdF[0] - 6, 10]]},
+ 'couch': {t: 0, aN: [160, 140], aF: [158, 138], lN: [205, 2, 0], lF: [92, 182, 90], hl: ['thN', 'hipN'], props: J => [['wall', J.anN[0] - 9, 10], ['pad', J.knN[0] - 6, J.knN[0] + 6]]},
+ 'standing-quad': {lF: [180, 180, 90], lN: [182, 352, 300], aN: [200, 192], aF: [100, 95, 20], hl: ['thN'], props: J => [['wall', J.hdF[0] + 1, 10]]},
+ 'side-quad': {v: 's', top: 1, zoom: 1.1, anchor: 'hip', t: 270, n: 270, h: 270, aF: [270, 270, null, .9, .8], lF: [90, 90, 90], lN: [90, 250, 250], aN: {to: 'anN', off: [0, 1], bend: 1}, hl: ['thN'], cap: 'lying on side: hold top ankle'},
+
+ 'butterfly': {v: 'f', ts: .8, aN: {to: 'anN', off: [-2, -1], bend: -1}, aF: {to: 'anF', off: [2, -1], bend: 1}, lN: [125, 245, 270, 1, 1, .5], lF: [235, 115, 90, 1, 1, .5], hl: ['thN', 'thF']},
+ 'frog': {zoom: 1.3, v: 'f', top: 1, back: 1, anchor: 'hip', t: 0, aN: [0, 0, 0, .15, 1], aF: [0, 0, 0, .15, 1], lN: [90, 180, 180], lF: [270, 180, 180], hl: ['thN', 'thF']},
+ 'side-lunge': {v: 'f', t: 5, aN: [190, 290], aF: [170, 70], lN: [135, 178, 120], lF: [214, 214, 240], hl: ['thF']},
+ 'straddle': {v: 'f', ts: .65, n: 0, h: 0, aN: [158, 172, 180], aF: [202, 188, 180], lN: [112, 112, 30], lF: [248, 248, 330], hl: ['thN', 'thF']},
+
+ 'strap-ham': {...SUP, lN: [350, 350, 260], lF: [90, 90, 0], aN: [20, 5], aF: [22, 3], hl: ['thN'], props: J => [['strap', J.hdN, J.toN]]},
+ 'step-ham': {t: 42, c: 0, n: 45, h: 80, lF: [180, 180, 90], lN: [118, 118, 28], aN: [150, 130], aF: [148, 128], anchor: 'anF', hl: ['thN'],
+   props: J => [['box', J.heN[0] - 7, J.heN[0] + 9, J.heN[1] + 2.3]]},
+ 'down-dog': {t: 130, n: 140, h: 160, aN: [130, 130, 90], aF: [132, 132, 90], lN: [212, 212, 90], lF: [210, 210, 90], hl: ['shN', 'thN']},
+
+ 'wall-calf': {t: 22, lF: [162, 185, 90], lN: [205, 205, 90], aN: [72, 68, 20], aF: [70, 66, 20], hl: ['shN'], props: J => [['wall', J.hdN[0] + 1, 10]]},
+ 'bent-calf': {t: 8, lF: [168, 192, 90], lN: [176, 222, 90], aN: [78, 76, 12], aF: [76, 74, 12], anchor: 'anN', hl: ['shN'], cap: 'bend both knees, heel down', props: J => [['wall', J.hdN[0] + 1, 10]]},
+ 'heel-drop': {zoom: .86, lN: [180, 180, 62], lF: [195, 250, 270], aN: [140, 100], aF: [180, 180], lift: 10, anchor: 'toN', fixY: 1, hl: ['shN'],
+   props: J => [['box', J.toN[0] - 7, J.toN[0] + 16, J.toN[1] + 2.3], ['post', J.hdN[0] + 3, 30]]},
+ 'kneel-shin': {t: -12, aN: [205, 195, 270], aF: [208, 197, 270], lN: [100, 270, 270], lF: [102, 270, 270], hl: ['shN', 'ftN']},
+ 'toe-drag': {lF: [180, 180, 90], lN: [192, 205, 250], aF: [80, 80, 20], aN: [180, 180], hl: ['shN', 'ftN'], cap: 'top of the toes on the floor', props: J => [['wall', J.hdF[0] + 1, 10]]},
+ 'peroneal': {v: 'f', lN: [178, 180, 120, .3], lF: [215, 80, 20, .55, .9, .55], aF: {to: 'toF', off: [0, -1], bend: 1}, aN: {to: 'anF', off: [-1, 0], bend: -1}, hl: ['shF'], cap: 'turn the sole up, toes back', props: J => [chairF(J)]},
+ 'tib-post': {t: 8, lN: [90, 90, 340], lF: [91, 91, 0], aN: [110, 80], aF: [112, 82], hl: ['shN', 'ftN'], cap: 'turn the sole outward', props: J => [['strap', J.hdN, J.toN]]},
+ 'toe-pull': {v: 'f', lN: [178, 180, 120, .3], lF: [215, 80, 355, .55, .9, .55], aF: {to: 'toF', off: [0, -1], bend: 1}, aN: {to: 'anF', off: [-1, 0], bend: -1}, hl: ['ftF'], cap: 'pull the toes back', props: J => [chairF(J)]},
+ 'wall-toe': {t: 12, lF: [195, 190, 90], lN: [165, 165, 20], aN: [74, 74, 20, .8, .8], aF: [76, 74, 20, .8, .8], hl: ['ftN', 'shN'], props: J => [['wall', J.toN[0] + 1, 10]]},
+};
+
+// ---------- Setup pose per stretch (only what differs from the stretch itself) ----------
+const W = (k, bend = 1) => ({w: k, bend});
+const QUAD_START = {t: 92, n: 100, h: 105, aN: [180, 180, 90, .8, .8], aF: [181, 180, 90, .8, .8], lN: [180, 270, 270], lF: [178, 270, 270]};
+const KNEEL_SIT = {t: 0, n: 0, h: 0, c: 0, aN: [150, 100], aF: [152, 102], lN: [100, 270, 270], lF: [102, 270, 270]};
+const FROM = {
+ 'upper-trap': {n: 0, h: 0, aN: [172, 178]},
+ 'levator': {n: 0, h: 0, ns: 1, look: [0, 0], aN: [172, 178]},
+ 'scalenes': {n: 0, h: 0, look: [0, 0], aN: [172, 178]},
+ 'scm': {n: 0, h: 0, look: [0, 0], noseFront: null},
+ 'chin-tuck': {n: 0, h: 0},
+ 'cross-body': {aF: [184, 180], aN: [176, 180]},
+ 'sleeper': {aN: [160, 0, 0, .35, 1.15]},
+ 'doorway-er': {aN: [180, 180]},
+ 'towel-ir': {aF: {to: 'sh', off: [-1.5, 2], bend: -1}, aN: {to: 'tc', off: [1.5, 8], bend: -1}},
+ 'hands-behind': {t: 0, c: 0, n: 0, h: 0, aN: [196, 188], aF: [196, 188]},
+ 'behind-back-pull': {n: 0, h: 0, aF: [184, 180], aN: [176, 180]},
+ 'thread-needle': {...QUAD_START},
+ 'doorway-pec': {aN: [90, 90, 90, 1, .15], aF: [270, 270, 270, 1, .15]},
+ 'high-doorway': {aN: [90, 90, 90, 1, .15], aF: [270, 270, 270, 1, .15]},
+ 'roller-chest': {aN: [350, 350, null, .9, .9], aF: [352, 352, null, .9, .9]},
+ 'open-book': {aN: [178, 178, null, .3, .3]},
+ 'side-childs': {...KNEEL_SIT},
+ 'bench-lat': {t: 88, n: 92, h: 96, aN: [62, 250, null, 1, .9], aF: [65, 248, null, 1, .9], lN: [178, 270, 270], lF: [176, 270, 270]},
+ 'wall-biceps': {aN: [215, 215, 270]},
+ 'floor-biceps': {t: -6, aN: W('hdN', -1), aF: W('hdF', -1), lN: [58, 150, 90], lF: [61, 148, 90]},
+ 'overhead-triceps': {n: 0, h: 0, aN: [175, 180], aF: [180, 180]},
+ 'wrist-flexor': {aN: [90, 90, 90], aF: [180, 180]},
+ 'wrist-extensor': {aN: [90, 92, 92], aF: [180, 180]},
+ 'prayer': {aN: [165, 330, 0], aF: [195, 30, 0]},
+ 'kneel-wrist': {t: 92, aN: W('hdN', 1), aF: W('hdF', 1), lN: [182, 270, 270], lF: [180, 270, 270]},
+ 'sphinx': {t: 90, n: 95, h: 100, aN: [95, 90, 90, .4, 1], aF: [97, 92, 90, .4, 1]},
+ 'side-bend': {t: 0, aF: [184, 180], aN: [176, 180]},
+ 'supine-twist': {lN: [90, 90, 90]},
+ 'camel': {t: 0, c: 0, n: 0, h: 0, aN: [200, 30], aF: [202, 32], lN: [180, 270, 0], lF: [178, 270, 0]},
+ 'childs': {...KNEEL_SIT},
+ 'bar-hang': {aN: [180, 180, 180], aF: [180, 180, 180], lN: [180, 180, 90], lF: [180, 180, 90]},
+ 'upper-round': {t: 0, c: 0, n: 0, h: 0},
+ 'cat-cow': {c: -5, n: 40, h: 60},
+ 'post-pull': {t: 46, c: 0, n: 52, h: 66, aN: W('hdN', 1), aF: W('hdF', 1), lN: [175, 185, 90], lF: [173, 187, 90]},
+ 'knees-chest': {lN: [60, 165, 90], lF: [64, 162, 90], aN: [95, 92], aF: [97, 93]},
+ 'crossover-bend': {t: 0, aF: [180, 180], aN: [180, 180], lF: [182, 180, 240], lN: [178, 180, 120]},
+ 'forward-fold': {t: 0, c: 0, n: 0, h: 0, aN: [150, 100], aF: [152, 102]},
+ 'figure-4': {lF: [42, 160, 90], lN: [38, 162, 90, 1, 1], aN: [95, 92], aF: [97, 93]},
+ 'knee-drop': {lN: [90, 90, 90, .55, .5], lF: [90, 90, 90, .55, .5]},
+ 'knee-shoulder': {lN: [90, 90, 0], aN: [95, 92], aF: [97, 93]},
+ 'ninety-ninety': {t: 0},
+ 'chair-glute': {ts: 1, lF: [182, 180, 240, .3], aN: [172, 178], aF: [188, 182]},
+ 'pigeon': {t: 0, c: 0, n: 0, h: 0, aN: [150, 170, 90, .7, .7], aF: [155, 172, 90, .7, .7]},
+ 'seated-twist': {h: 0, aF: [150, 100], aN: [180, 180, 90, .9, .9]},
+ 'half-kneel': {t: 0, aN: [180, 180], lN: [178, 270, 270]},
+ 'high-lunge': {aN: [180, 180], aF: [180, 180], lF: [176, 182, 90], lN: [184, 182, 90, 1, 1, 1]},
+ 'standing-tfl': {t: 0, lF: [180, 180, 240], lN: [180, 180, 120], aF: W('hdF', 1)},
+ 'couch': {t: 35, c: 3, n: 45, h: 60, aN: [150, 170, 90, .8, .8], aF: [152, 172, 90, .8, .8]},
+ 'standing-quad': {lN: [180, 180, 90], aN: [180, 180], aF: W('hdF', -1)},
+ 'side-quad': {lN: [90, 90, 90], aN: [100, 95]},
+ 'butterfly': {ts: 1, aN: [175, 180], aF: [185, 180]},
+ 'frog': {lN: [45, 180, 180, .8], lF: [315, 180, 180, .8]},
+ 'side-lunge': {lN: [148, 148, 120], lF: [212, 212, 240]},
+ 'straddle': {ts: 1, aN: [175, 180, 180], aF: [185, 180, 180]},
+ 'strap-ham': {lN: [45, 45, 135], aN: [45, 30], aF: [47, 28]},
+ 'step-ham': {t: 0, n: 0, h: 0, aN: [180, 180], aF: [180, 180]},
+ 'down-dog': {t: 92, n: 100, h: 110, aN: W('hdN', 1), aF: W('hdF', 1), lN: [180, 270, 270], lF: [178, 270, 270]},
+ 'wall-calf': {t: 8, lN: [182, 182, 90], lF: [178, 180, 90], aN: W('hdN', -1), aF: W('hdF', -1)},
+ 'bent-calf': {t: 12, lN: [200, 200, 90], lF: [172, 182, 90]},
+ 'heel-drop': {lN: [180, 180, 90], aN: W('hdN', 1)},
+ 'kneel-shin': {t: 2, aN: [160, 120], aF: [158, 118]},
+ 'toe-drag': {lN: [180, 180, 90], aF: W('hdF', -1)},
+ 'peroneal': {lF: [215, 80, 60, .55, .9, .55], aF: [188, 182], aN: [172, 178]},
+ 'tib-post': {lN: [90, 90, 40], aN: [100, 90], aF: [102, 92]},
+ 'toe-pull': {lF: [215, 80, 50, .55, .9, .55], aF: [188, 182], aN: [172, 178]},
+ 'wall-toe': {t: 0, lN: [178, 180, 90], lF: [182, 180, 90], aN: W('hdN', -1), aF: W('hdF', -1)},
+};
+
+// ---------- Mid-way keyframes, so limbs travel the natural way ----------
+const VIA = {
+ 'high-lunge': {aN: [90, 90], aF: [92, 92]},
+ 'half-kneel': {aN: [90, 90]},
+ 'bar-hang': {aN: [90, 90, 90], aF: [92, 92, 92]},
+ 'upper-trap': {aN: [100, 60]},
+ 'levator': {aN: [100, 60]},
+ 'cross-body': {aF: [150, 120, null, .6, .7]},
+ 'crossover-bend': {aF: [250, 250]},
+ 'side-bend': {aF: [250, 250], aN: [110, 110]},
+ 'open-book': {aN: [30, 30, null, .9, .9]},
+ 'overhead-triceps': {aN: [60, 90]},
+ 'roller-chest': {aN: [300, 300, null, .9, .9], aF: [302, 302, null, .9, .9]},
+};
+
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MIRROR = 'matrix(-1 0 0 1 200 0)';
+const VB0 = {x: 6, y: 6, w: 188, h: 450};
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const M = Object.fromEntries(MUSCLES.map(m => [m.id, m]));
+const G = Object.fromEntries(GROUPS.map(g => [g.id, {...g, muscles: MUSCLES.filter(m => m.g === g.id).map(m => m.id)}]));
+const ORDER = Object.fromEntries(MUSCLES.map((m, i) => [m.id, i]));
+const HAS_PRIMARY = new Set(STRETCHES.flatMap(s => s.p));
+const ALIASES = {
+  pec_major:'pecs chest', pec_minor:'pecs chest', lats:'lats wings back', glute_max:'glutes butt buttock', glute_med:'glutes hip', glute_min:'glutes hip',
+  rectus_abd:'abs six pack stomach', obliques:'abs waist side love handles', erectors:'low back spine', ql:'ql low back', iliopsoas:'psoas iliacus hip flexor',
+  tfl:'it band itb hip', piriformis:'sciatic buttock', scm:'neck', upper_trap:'traps neck shoulders', mid_trap:'traps', lower_trap:'traps',
+  wrist_flexors:'forearm grip golfer', wrist_extensors:'forearm tennis elbow', infraspinatus:'rotator cuff', supraspinatus:'rotator cuff', teres_minor:'rotator cuff', subscap:'rotator cuff',
+  gastroc:'calf calves', soleus:'calf calves achilles', tib_ant:'shin', peroneals:'fibularis ankle', tib_post:'arch ankle', biceps_fem:'hamstring', semitend:'hamstring', semimem:'hamstring',
+  rectus_fem:'quads quadriceps', vastus_lat:'quads quadriceps', vastus_med:'quads quadriceps vmo', vastus_int:'quads quadriceps', add_longus:'groin adductors', add_magnus:'groin adductors', gracilis:'groin adductors', pectineus:'groin adductors',
+  suboccipitals:'headache skull base neck', sup_gem:'deep hip rotators gemelli', obt_int:'deep hip rotators obturator', inf_gem:'deep hip rotators gemelli', quad_fem:'deep hip rotators', obt_ext:'deep hip rotators obturator', toe_ext:'toes shin extensor digitorum', fhl:'toes big toe flexor hallucis fhl', fdl:'toes flexor digitorum fdl', foot_arch:'plantar fascia fasciitis sole arch foot heel',
+  ant_delt:'delts shoulder', lat_delt:'delts shoulder', post_delt:'delts shoulder', biceps:'arm', triceps_long:'arm', triceps_lat:'arm'
+};
+
+// ---------- state ----------
+const state = {sel: new Set(), focus: null, layer: 'surface', pos: 'All', noEq: false, preview: null, hover: null, last: null};
+try {
+  const o = JSON.parse(localStorage.getItem('stretchmap.v1') || 'null');
+  if (o) {
+    (o.sel || []).forEach(id => M[id] && state.sel.add(id));
+    if (o.layer === 'deep') state.layer = 'deep';
+    if (['All','Standing','Seated','Floor'].includes(o.pos)) state.pos = o.pos;
+    state.noEq = !!o.noEq;
+  }
+} catch (e) {}
+function save() {
+  try { localStorage.setItem('stretchmap.v1', JSON.stringify({sel: [...state.sel], layer: state.layer, pos: state.pos, noEq: state.noEq})); } catch (e) {}
+}
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ---------- sprite for thumbnails ----------
+const sprite = $('#sprite');
+{
+  const sym = el('g', {id: 'sym-sil'}, sprite);
+  el('path', {d: SIL}, sym); el('path', {d: SIL, transform: MIRROR}, sym);
+  el('ellipse', {cx: 100, cy: 33, rx: 18, ry: 23}, sym);
+  const byKey = {};
+  for (const sh of SHAPES) (byKey[sh.m + '-' + sh.v] ||= []).push(sh.d);
+  for (const k in byKey) {
+    const g = el('g', {id: 'sym-' + k}, sprite);
+    for (const d of byKey[k]) { el('path', {d}, g); el('path', {d, transform: MIRROR}, g); }
+  }
+}
+const SHAPE_VIEWS = {};
+for (const sh of SHAPES) (SHAPE_VIEWS[sh.m] ||= new Set()).add(sh.v);
+
+// ---------- body ----------
+const views = {};
+const pathsBy = {};      // muscle id -> path elements (all copies, both views)
+const info = [];         // right-hand copies with measurements
+for (const v of ['f', 'b']) {
+  const svg = $('#svg-' + v);
+  svg.setAttribute('viewBox', `${VB0.x} ${VB0.y} ${VB0.w} ${VB0.h}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  const base = el('g', {}, svg);
+  el('path', {d: SIL, class: 'sil'}, base);
+  el('path', {d: SIL, class: 'sil', transform: MIRROR}, base);
+  el('ellipse', {cx: 100, cy: 33, rx: 18, ry: 23, class: 'sil'}, base);
+  const mg = el('g', {class: 'muscles'}, svg);
+  for (const mir of [0, 1]) {
+    const g = el('g', mir ? {transform: MIRROR} : {}, mg);
+    for (const sh of SHAPES.filter(s => s.v === v)) {
+      const p = el('path', {d: sh.d, class: 'mus', 'data-m': sh.m}, g);
+      (pathsBy[sh.m] ||= []).push(p);
+      if (sh.proxy) p.classList.add('proxy');
+      if (!mir) info.push({m: sh.m, v, deep: !!sh.deep, el: p, lx: sh.lx, lp: sh.lp});
+    }
+    for (const dc of DECOR[v]) el('path', {d: dc.d, class: 'dec ' + dc.k}, g);
+  }
+  const mk = el('g', {class: 'markers'}, svg);
+  views[v] = {svg, pane: $('#pane-' + v), mk, vb: {...VB0}, anim: null};
+}
+// measure before deep shapes get display:none
+for (const it of info) {
+  const b = it.el.getBBox();
+  it.bb = {x: b.x, y: b.y, w: b.width, h: b.height};
+  it.lp = it.lp ? {x: it.lp[0], y: it.lp[1]} : it.lx != null ? {x: it.bb.x + it.lx * it.bb.w, y: it.bb.y + it.bb.h / 2} : labelPoint(it.el, it.bb, views[it.v].svg);
+}
+for (const it of info) if (it.deep) for (const p of pathsBy[it.m]) p.classList.add('deep');
+
+function labelPoint(p, bb, svg) {
+  const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+  let pt;
+  try { pt = svg.createSVGPoint(); } catch (e) { return {x: cx, y: cy}; }
+  const inside = (x, y) => { pt.x = x; pt.y = y; try { return p.isPointInFill(pt); } catch (e) { return true; } };
+  if (inside(cx, cy) && inside(cx - bb.w * .12, cy) && inside(cx + bb.w * .12, cy)) return {x: cx, y: cy};
+  let best = null, bestScore = -1;
+  const N = 11, dx = bb.w / N, dy = bb.h / N;
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const x = bb.x + dx * (i + .5), y = bb.y + dy * (j + .5);
+    if (!inside(x, y)) continue;
+    let s = 0;
+    for (const [a, b] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]) if (inside(x + a * dx * .8, y + b * dy * .8)) s++;
+    const score = s * 1000 - Math.hypot(x - cx, y - cy);
+    if (score > bestScore) { bestScore = score; best = {x, y}; }
+  }
+  return best || {x: cx, y: cy};
+}
+
+function groupVB(gid, v, panes) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, any = false;
+  for (const it of info) {
+    if (it.v !== v || M[it.m].g !== gid) continue;
+    any = true;
+    x1 = Math.min(x1, it.bb.x); y1 = Math.min(y1, it.bb.y);
+    x2 = Math.max(x2, it.bb.x + it.bb.w); y2 = Math.max(y2, it.bb.y + it.bb.h);
+  }
+  if (!any) return null;
+  if (x1 <= 112) {
+    // one wide pane: show both sides; two narrow panes: show one side plus the midline
+    if (panes === 1) { const lo = Math.min(x1, 200 - x2), hi = Math.max(x2, 200 - x1); x1 = lo; x2 = hi; }
+    else x1 = Math.min(x1, 96);
+  }
+  const pad = Math.max(7, .1 * Math.max(x2 - x1, y2 - y1));
+  x1 -= pad; x2 += pad; y1 -= pad; y2 += pad;
+  let w = x2 - x1, h = y2 - y1;
+  if (w < 56) { x1 -= (56 - w) / 2; w = 56; }
+  if (h < 72) { y1 -= (72 - h) / 2; h = 72; }
+  return {x: x1, y: y1, w, h};
+}
+
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function animateVB(v, to, done) {
+  const V = views[v];
+  if (V.anim) cancelAnimationFrame(V.anim);
+  const from = {...V.vb}, t0 = performance.now(), dur = reduceMotion ? 0 : 480;
+  const step = now => {
+    const t = dur ? Math.min(1, (now - t0) / dur) : 1, k = ease(t);
+    for (const key of ['x', 'y', 'w', 'h']) V.vb[key] = from[key] + (to[key] - from[key]) * k;
+    V.svg.setAttribute('viewBox', `${V.vb.x} ${V.vb.y} ${V.vb.w} ${V.vb.h}`);
+    if (t < 1) V.anim = requestAnimationFrame(step); else { V.anim = null; done && done(); }
+  };
+  V.anim = requestAnimationFrame(step);
+}
+
+function applyZoom() {
+  const g = state.focus && G[state.focus];
+  let pending = 0;
+  const finish = () => { if (--pending <= 0) layoutMarkers(); };
+  for (const v of ['f', 'b']) {
+    const show = !g || g.views.includes(v);
+    views[v].pane.classList.toggle('off', !show);
+    let target = g ? (groupVB(g.id, v, g.views.length) || VB0) : VB0;
+    if (g && target !== VB0) target = clampZoom(target, g.views.length);
+    pending++;
+    animateVB(v, target, finish);
+  }
+  clearMarkers();
+}
+
+function clampZoom(vb, panes) {
+  const st = $('#stage').getBoundingClientRect();
+  const pw = st.width / panes, ph = st.height, MAX = 4.6;
+  const s = Math.min(pw / vb.w, ph / vb.h);
+  if (!(s > MAX)) return vb;
+  const f = s / MAX, cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+  return {x: cx - vb.w * f / 2, y: cy - vb.h * f / 2, w: vb.w * f, h: vb.h * f};
+}
+
+// ---------- markers ----------
+function clearMarkers() { for (const v of ['f', 'b']) views[v].mk.replaceChildren(); }
+function layoutMarkers() {
+  clearMarkers();
+  if (!state.focus) return;
+  const g = G[state.focus];
+  g.muscles.forEach((id, i) => {
+    const deep = !!M[id].deep;
+    if (deep !== (state.layer === 'deep')) return;
+    for (const v of g.views) {
+      const shapes = info.filter(it => it.m === id && it.v === v);
+      if (!shapes.length) continue;
+      const best = shapes.reduce((a, b) => (b.bb.w * b.bb.h > a.bb.w * a.bb.h ? b : a));
+      const V = views[v], r = V.svg.getBoundingClientRect();
+      if (!r.width) continue;
+      const scale = Math.min(r.width / V.vb.w, r.height / V.vb.h);
+      const k = el('g', {class: 'mk' + (state.sel.has(id) ? ' on' : ''), 'data-m': id}, V.mk);
+      el('circle', {cx: best.lp.x, cy: best.lp.y, r: 10.5 / scale}, k);
+      const t = el('text', {x: best.lp.x, y: best.lp.y + .5 / scale, 'font-size': 11.5 / scale}, k);
+      t.textContent = i + 1;
+    }
+  });
+}
+let rsT;
+new ResizeObserver(() => { clearTimeout(rsT); rsT = setTimeout(layoutMarkers, 120); }).observe($('#stage'));
+
+// ---------- classes ----------
+function paint() {
+  for (const v of ['f', 'b']) {
+    views[v].svg.classList.toggle('layer-deep', state.layer === 'deep');
+    views[v].svg.classList.toggle('previewing', !!state.preview);
+  }
+  const pv1 = new Set(state.preview ? state.preview.p : []), pv2 = new Set(state.preview ? state.preview.s : []);
+  const hovGroup = !state.focus && state.hover ? M[state.hover].g : null;
+  for (const id in pathsBy) {
+    const m = M[id];
+    const on = state.sel.has(id);
+    const dim = !!state.focus && m.g !== state.focus;
+    const hint = !!m.deep && state.focus === m.g && state.layer === 'surface';
+    const hov = state.hover === id || hovGroup === m.g;
+    for (const p of pathsBy[id]) {
+      p.classList.toggle('on', on);
+      p.classList.toggle('dim', dim && !state.preview);
+      p.classList.toggle('hint', hint);
+      p.classList.toggle('hov', hov);
+      p.classList.toggle('pv1', pv1.has(id));
+      p.classList.toggle('pv2', pv2.has(id) && !pv1.has(id));
+    }
+  }
+  document.querySelectorAll('.mk').forEach(k => {
+    k.classList.toggle('on', state.sel.has(k.dataset.m));
+    k.classList.toggle('hov', state.hover === k.dataset.m);
+  });
+  document.querySelectorAll('.mrow[data-m]').forEach(r => r.classList.toggle('hov', state.hover === r.dataset.m));
+}
+
+// ---------- readout ----------
+function readout() {
+  const n = $('#rname'), s = $('#rsub');
+  const id = state.hover || (state.focus ? state.last : null);
+  if (state.preview) {
+    n.textContent = state.preview.name;
+    s.textContent = 'Solid blue: main stretch. Light blue: also stretched.';
+    return;
+  }
+  if (id && (!state.focus || M[id].g === state.focus || state.hover)) {
+    const m = M[id];
+    if (!state.focus && state.hover) {
+      const g = G[m.g], c = g.muscles.filter(x => state.sel.has(x)).length;
+      n.textContent = g.name;
+      s.textContent = `${g.muscles.length} muscles${c ? `, ${c} targeted` : ''}. Tap to zoom in.`;
+    } else {
+      n.textContent = m.name + (m.deep ? ' (deep)' : '');
+      s.textContent = state.focus && m.g !== state.focus ? `In ${G[m.g].name}. Tap to switch groups.` : (state.sel.has(id) ? 'Targeted. Tap again to remove.' : 'Tap to target.') + (m.note ? ' ' + m.note : '');
+    }
+    return;
+  }
+  if (state.focus) {
+    const g = G[state.focus];
+    n.textContent = g.name;
+    const deepN = g.muscles.filter(x => M[x].deep).length;
+    if (state.layer === 'deep' && !deepN) s.textContent = 'No deep muscles here. Switch to Surface to tap them.';
+    else s.textContent = state.layer === 'deep' ? 'Deep layer: tap the solid shapes.' : (deepN ? 'Tap a muscle or number. Dashed outlines are deep muscles.' : 'Tap a muscle or number to target it.');
+  } else {
+    n.textContent = 'Whole body';
+    s.textContent = state.sel.size ? `${state.sel.size} muscle${state.sel.size > 1 ? 's' : ''} targeted. Tap a group to zoom in.` : 'Tap a muscle group to zoom in.';
+  }
+}
+
+// ---------- actions ----------
+function focusGroup(gid) {
+  if (state.focus === gid) return;
+  state.focus = gid; state.last = null; state.hover = null;
+  $('#backBtn').hidden = !gid;
+  $('#crumb').textContent = gid ? G[gid].name : 'Whole body';
+  applyZoom(); paint(); readout(); renderNav();
+}
+function toggle(id, force) {
+  const on = force === undefined ? !state.sel.has(id) : force;
+  on ? state.sel.add(id) : state.sel.delete(id);
+  state.last = id;
+  afterSel();
+}
+function setMany(ids, on) { ids.forEach(id => on ? state.sel.add(id) : state.sel.delete(id)); afterSel(); }
+function afterSel() { save(); paint(); readout(); renderNav(); renderSel(); renderStretches(); jumpCheck(); }
+function setLayer(l) {
+  state.layer = l; save();
+  $('#layer-surface').setAttribute('aria-pressed', l === 'surface');
+  $('#layer-deep').setAttribute('aria-pressed', l === 'deep');
+  paint(); layoutMarkers(); readout(); renderNav();
+}
+function setPreview(st) {
+  if (state.preview === st) return;
+  state.preview = st;
+  document.querySelectorAll('.st').forEach(c => c.classList.toggle('pv', !!st && c.dataset.id === st.id));
+  paint(); readout();
+}
+
+// body events
+for (const v of ['f', 'b']) {
+  const svg = views[v].svg;
+  svg.addEventListener('click', e => {
+    const t = e.target.closest('[data-m]');
+    if (!t) return;
+    const id = t.dataset.m;
+    if (!state.focus || M[id].g !== state.focus) focusGroup(M[id].g);
+    else toggle(id);
+  });
+  svg.addEventListener('pointerover', e => {
+    if (e.pointerType !== 'mouse') return;
+    const t = e.target.closest('[data-m]');
+    state.hover = t ? t.dataset.m : null; paint(); readout();
+  });
+  svg.addEventListener('pointerleave', () => { if (state.hover) { state.hover = null; paint(); readout(); } });
+}
+$('#backBtn').addEventListener('click', () => focusGroup(null));
+$('#layer-surface').addEventListener('click', () => setLayer('surface'));
+$('#layer-deep').addEventListener('click', () => setLayer('deep'));
+
+// ---------- icons ----------
+const IC = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  pause: '<svg class="pz" viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+};
+
+// ---------- nav panel ----------
+function muscleRow(id, num, extra) {
+  const m = M[id], on = state.sel.has(id);
+  return `<li><button class="mrow" data-act="m" data-m="${id}" aria-pressed="${on}">
+    <span class="num${m.deep ? ' deep' : ''}">${num}</span>
+    <span class="mtxt"><span class="mname">${esc(m.name)}${m.deep ? '<span class="tag">Deep</span>' : ''}</span>
+    <span class="mdesc">${extra ? esc(extra) + ' · ' : ''}${esc(m.d)}</span>${m.note ? `<span class="mnote">${esc(m.note)}</span>` : ''}</span>
+    <span class="check">${IC.check}</span></button></li>`;
+}
+function renderNav() {
+  const nav = $('#nav');
+  if (!state.focus) {
+    nav.innerHTML = `<div class="bhead"><h2>Muscle groups</h2><span class="note">Check a box to target the whole group</span></div>
+    <ul class="glist">${GROUPS.map(g => {
+      const n = G[g.id].muscles.filter(x => state.sel.has(x)).length, t = G[g.id].muscles.length;
+      const cls = n === t ? 'full' : n ? 'part' : '';
+      return `<li class="grow" data-g="${g.id}"><button class="gtoggle" data-act="g" data-g="${g.id}" aria-pressed="${n === t}" aria-label="Target all ${esc(g.name)}">
+        <span class="box ${cls}">${IC.check}</span><span class="gname">${esc(g.name)}</span><span class="gcount">${n}/${t}</span></button>
+        <button class="gexplore" data-act="explore" data-g="${g.id}" aria-label="Zoom into ${esc(g.name)}">Zoom${IC.chev}</button></li>`;
+    }).join('')}</ul>`;
+    return;
+  }
+  const g = G[state.focus];
+  const n = g.muscles.filter(x => state.sel.has(x)).length;
+  const deepN = g.muscles.filter(x => M[x].deep).length;
+  nav.innerHTML = `<div class="ghead">
+      <div class="row"><button class="iconbtn" data-act="back">${IC.chev.replace('M9 6l6 6-6 6', 'M15 18l-6-6 6-6')}All groups</button>
+        <span class="spacer"></span>
+        <button class="btn accent" data-act="all" ${n === g.muscles.length ? 'disabled' : ''}>Target all ${g.muscles.length}</button>
+        <button class="btn" data-act="none" ${n ? '' : 'disabled'}>Clear</button></div>
+      <div class="row"><h2>${esc(g.name)}</h2><span class="note">${n} of ${g.muscles.length} targeted</span></div>
+    </div>
+    <ul class="mlist">${g.muscles.map((id, i) => muscleRow(id, i + 1)).join('')}</ul>
+    ${deepN ? `<p class="deepnote">${state.layer === 'surface'
+        ? `${deepN} of these sit under other muscles and show as dashed outlines. <button data-act="deep">Show deep layer</button>`
+        : `Showing the deep layer. <button data-act="surface">Back to surface</button>`}</p>` : ''}`;
+}
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'g') { const ids = G[b.dataset.g].muscles; setMany(ids, !ids.every(x => state.sel.has(x))); }
+  else if (a === 'explore') { focusGroup(b.dataset.g); scrollViewerIntoView(); }
+  else if (a === 'back') focusGroup(null);
+  else if (a === 'all') setMany(G[state.focus].muscles, true);
+  else if (a === 'none') setMany(G[state.focus].muscles, false);
+  else if (a === 'm') toggle(b.dataset.m);
+  else if (a === 'deep') setLayer('deep');
+  else if (a === 'surface') setLayer('surface');
+});
+for (const evt of ['pointerover', 'focusin']) $('#nav').addEventListener(evt, e => {
+  if (evt === 'pointerover' && e.pointerType !== 'mouse') return;
+  const r = e.target.closest('.mrow[data-m], .grow');
+  const id = r ? (r.dataset.m || G[r.dataset.g].muscles[0]) : null;
+  if (id !== state.hover) { state.hover = id; paint(); readout(); }
+});
+$('#nav').addEventListener('pointerleave', () => { if (state.hover) { state.hover = null; paint(); readout(); } });
+
+function scrollViewerIntoView() {
+  if (innerWidth >= 900) return;
+  const r = $('.viewer').getBoundingClientRect();
+  if (r.top < 0 || r.top > innerHeight * .3) window.scrollBy({top: r.top - 8, behavior: reduceMotion ? 'auto' : 'smooth'});
+}
+
+// ---------- search ----------
+const q = $('#q');
+q.addEventListener('input', renderResults);
+function renderResults() {
+  const term = q.value.trim().toLowerCase();
+  const box = $('#results');
+  if (!term) { box.innerHTML = ''; return; }
+  const words = term.split(/\s+/);
+  const hits = MUSCLES.filter(m => {
+    const hay = (m.name + ' ' + G[m.g].name + ' ' + (ALIASES[m.id] || '') + ' ' + m.d).toLowerCase();
+    return words.every(w => hay.includes(w));
+  }).sort((a, b) => {
+    const an = a.name.toLowerCase().includes(term) ? 0 : 1, bn = b.name.toLowerCase().includes(term) ? 0 : 1;
+    return an - bn || ORDER[a.id] - ORDER[b.id];
+  }).slice(0, 8);
+  box.innerHTML = hits.length
+    ? `<ul class="mlist">${hits.map(m => muscleRow(m.id, G[m.g].muscles.indexOf(m.id) + 1, G[m.g].name)).join('')}</ul>`
+    : `<p class="empty">No muscle matches “${esc(q.value.trim())}”. Try a body part like calf, hip or shoulder.</p>`;
+}
+$('#results').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); if (!b) return;
+  const id = b.dataset.m;
+  focusGroup(M[id].g);
+  if (M[id].deep && state.layer === 'surface') setLayer('deep');
+  toggle(id, !state.sel.has(id));
+  renderResults();
+  scrollViewerIntoView();
+});
+
+// ---------- selection ----------
+function presetButtons(compact) {
+  return PRESETS.map((p, i) => {
+    const all = p.m.every(x => state.sel.has(x));
+    const sub = p.note || p.m.map(x => M[x].name).slice(0, 3).join(', ') + (p.m.length > 3 ? ` +${p.m.length - 3}` : '');
+    return compact
+      ? `<button class="pchip" data-preset="${i}" aria-pressed="${all}" title="${esc(sub)}">${all ? IC.check : '+'} ${esc(p.name)}</button>`
+      : `<button class="preset" data-preset="${i}"><b>${esc(p.name)}</b><span>${esc(sub)}</span></button>`;
+  }).join('');
+}
+function renderSel() {
+  const box = $('#selection');
+  if (!state.sel.size) {
+    box.innerHTML = `<div class="bhead"><h2>Targeting</h2><span class="note">Nothing yet</span></div>
+      <p class="empty">Tap the body, check a group, or start from a quick pick:</p>
+      <div class="presets">${presetButtons(false)}</div>`;
+    return;
+  }
+  const ids = [...state.sel].sort((a, b) => ORDER[a] - ORDER[b]);
+  box.innerHTML = `<div class="bhead"><h2>Targeting ${ids.length} muscle${ids.length > 1 ? 's' : ''}</h2><button class="btn" data-clear>Clear all</button></div>
+    <div class="chips">${ids.map(id => `<button class="chip" data-rm="${id}" aria-label="Remove ${esc(M[id].name)}">${esc(M[id].name)}${IC.x}</button>`).join('')}</div>
+    <div class="qp"><span class="note">Add a quick pick</span><div class="pchips">${presetButtons(true)}</div></div>`;
+}
+$('#selection').addEventListener('click', e => {
+  const p = e.target.closest('[data-preset]'), r = e.target.closest('[data-rm]'), c = e.target.closest('[data-clear]');
+  if (p) { const ids = PRESETS[+p.dataset.preset].m; setMany(ids, !(p.classList.contains('pchip') && ids.every(x => state.sel.has(x)))); }
+  else if (r) toggle(r.dataset.rm, false);
+  else if (c) { state.sel.clear(); state.last = null; afterSel(); }
+});
+
+// ---------- stretches ----------
+const EQ_NONE = s => !s.eq;
+function scoreOf(st) {
+  let p = 0, s = 0;
+  for (const x of st.p) if (state.sel.has(x)) p++;
+  for (const x of st.s) if (state.sel.has(x)) s++;
+  return {p, s, score: 2 * p + s};
+}
+function filtered() {
+  return STRETCHES.filter(s => (state.pos === 'All' || s.pos === state.pos) && (!state.noEq || EQ_NONE(s)));
+}
+function ranked() {
+  const list = filtered();
+  if (!state.sel.size) return list.map(s => ({st: s, sc: null}));
+  return list.map(s => ({st: s, sc: scoreOf(s)})).filter(x => x.sc.score > 0)
+    .sort((a, b) => b.sc.score - a.sc.score || b.sc.p - a.sc.p || a.st.lvl - b.st.lvl || (a.st.p.length + a.st.s.length) - (b.st.p.length + b.st.s.length));
+}
+function smartRoutine() {
+  const pool = filtered();
+  const U = new Set(state.sel), chosen = [];
+  while (U.size && chosen.length < 8) {
+    let best = null, bs = 0;
+    for (const st of pool) {
+      if (chosen.includes(st)) continue;
+      const sc = 3 * st.p.filter(x => U.has(x)).length + st.s.filter(x => U.has(x) && !HAS_PRIMARY.has(x)).length * 2 + st.s.filter(x => U.has(x)).length * .5;
+      if (sc > bs || (sc === bs && best && st.lvl < best.lvl)) { bs = sc; best = st; }
+    }
+    if (!best || bs < 1) break;
+    chosen.push(best);
+    best.p.forEach(x => U.delete(x));
+    best.s.forEach(x => { if (!HAS_PRIMARY.has(x)) U.delete(x); });
+  }
+  const covered = [...state.sel].filter(x => !U.has(x)).length;
+  return {list: chosen, covered};
+}
+function holdLabel(st) { return `${st.hold} s${st.sides ? ' each side' : ''}`; }
+const LV = ['', 'Gentle', 'Moderate', 'Advanced'];
+function thumb(st) {
+  const one = v => {
+    const parts = [`<use href="#sym-sil" class="ts"/>`];
+    for (const x of st.s) if (SHAPE_VIEWS[x]?.has(v)) parts.push(`<use href="#sym-${x}-${v}" class="t2"/>`);
+    for (const x of st.p) if (SHAPE_VIEWS[x]?.has(v)) parts.push(`<use href="#sym-${x}-${v}" class="t1"/>`);
+    return `<svg viewBox="6 6 188 450" aria-hidden="true">${parts.join('')}</svg>`;
+  };
+  return `<div class="thumbs" title="Front and back">${one('f')}${one('b')}</div>`;
+}
+const TOON = {};
+function toon(st) { return TOON[st.id] ||= (POSES[st.id] ? toonSVG(st.id, 1, 'How to do the ' + st.name) : ''); }
+// ---- tap-to-play cartoon loops (one at a time)
+const anim = {el: null, id: null, raf: 0, t0: 0};
+function stopAnim() {
+  cancelAnimationFrame(anim.raf);
+  if (anim.el) {
+    anim.el.classList.remove('playing');
+    anim.el.setAttribute('aria-pressed', 'false');
+    const svg = anim.el.querySelector('svg.toon');
+    if (svg) svg.innerHTML = toonInner(anim.id, 1);
+  }
+  anim.el = null; anim.id = null;
+}
+function playToon(btn) {
+  if (anim.el === btn) { stopAnim(); return; }
+  stopAnim();
+  anim.el = btn; anim.id = btn.dataset.anim; anim.t0 = performance.now();
+  btn.classList.add('playing'); btn.setAttribute('aria-pressed', 'true');
+  const svg = btn.querySelector('svg.toon'), lab = btn.querySelector('.tphase');
+  let lastK = -1;
+  const tick = now => {
+    if (!anim.el || !anim.el.isConnected) { anim.el = null; return; }
+    const ms = now - anim.t0;
+    const k = reduceMotion ? (Math.floor(ms / 1800) % 2) : loopK(ms);
+    if (Math.abs(k - lastK) > .002) { svg.innerHTML = toonInner(anim.id, k); lastK = k; }
+    lab.textContent = k < .5 ? 'Setup' : 'Stretch';
+    anim.raf = requestAnimationFrame(tick);
+  };
+  anim.raf = requestAnimationFrame(tick);
+}
+function card(x, i) {
+  const st = x.st, sc = x.sc;
+  const chips = [...st.p.map(id => `<span class="tchip${state.sel.has(id) ? ' hit' : ''}">${esc(M[id].name)}</span>`),
+                 ...st.s.map(id => `<span class="tchip sec${state.sel.has(id) ? ' hit' : ''}">${esc(M[id].name)}</span>`)].join('');
+  const hits = sc ? sc.p + sc.s : 0;
+  return `<article class="st" data-id="${st.id}">
+    <button class="toonbox" data-anim="${st.id}" aria-pressed="false" aria-label="Play how-to animation for ${esc(st.name)}">${toon(st)}<span class="tphase">Setup</span><span class="tplay">${IC.play}${IC.pause}</span></button>
+    <div class="st-top">${thumb(st)}
+      <div class="st-head"><h3>${esc(st.name)}</h3>
+        <div class="meta"><span>${holdLabel(st)}</span><span>${st.pos}${st.eq ? ' · ' + esc(st.eq) : ''}</span>
+          <span class="lv" title="${LV[st.lvl]}">${[1,2,3].map(n => `<i class="${n <= st.lvl ? 'f' : ''}"></i>`).join('')}&nbsp;${LV[st.lvl]}</span></div>
+        ${sc ? `<span class="match">${state.sel.size === 1 ? 'Hits your target' : hits === state.sel.size ? `Hits all ${hits} of your targets` : `Hits ${hits} of your ${state.sel.size} targets`}</span>` : ''}
+      </div></div>
+    <div class="tchips">${chips}</div>
+    <details${i === 0 && sc ? ' open' : ''}><summary>${IC.chev}How to do it</summary>
+      <ol>${st.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+      <p class="feel"><b>Feel it:</b> ${esc(st.feel)}</p>${st.care ? `<p class="care"><b>Careful:</b> ${esc(st.care)}</p>` : ''}
+    </details>
+    <div class="st-actions"><button class="play" data-play="${st.id}">${IC.play}Start timer</button></div>
+  </article>`;
+}
+function renderStretches() {
+  stopAnim();
+  const box = $('#stretches');
+  const list = ranked();
+  const has = state.sel.size > 0;
+  const routine = has ? smartRoutine() : null;
+  const secs = routine ? routine.list.reduce((t, s) => t + (s.sides ? 2 : 1) * s.hold + 5 + (s.sides ? 3 : 0), 0) : 0;
+  box.innerHTML = `<div class="bhead" id="st-head"><h2>${has ? 'Best matches' : 'Stretch library'}</h2><span class="note">${list.length} stretch${list.length === 1 ? '' : 'es'}${has ? ', best first' : ', head to toe'}</span></div>
+    <div class="filters" role="group" aria-label="Filters">
+      <div class="seg" role="group" aria-label="Position">${['All', 'Standing', 'Seated', 'Floor'].map(p => `<button data-pos="${p}" aria-pressed="${state.pos === p}">${p}</button>`).join('')}</div>
+      <button class="toggle" data-noeq aria-pressed="${state.noEq}">No equipment</button>
+    </div>
+    <p class="tlegend" aria-label="How to read the animations"><span><i style="background:var(--stretch)"></i>where you feel it</span><span><i style="background:var(--fig-far)"></i>far-side limbs</span><span><i class="dash"></i>mat, seen from above</span><span><i style="background:var(--strap);height:4px"></i>strap or towel</span></p>
+    ${routine && routine.list.length ? `<div class="routine-cta"><div class="t"><b>Guided routine</b><span>${routine.list.length} stretch${routine.list.length > 1 ? 'es cover' : ' covers'} ${routine.covered === state.sel.size ? (state.sel.size === 1 ? 'your target' : `all ${state.sel.size} targets`) : `${routine.covered} of your ${state.sel.size} targets`} · about ${Math.max(1, Math.round(secs / 60))} min</span></div><button class="btn" data-routine>Start routine</button></div>` : ''}
+    ${list.length ? `<div class="slist">${list.map(card).join('')}</div>` : `<p class="empty">No stretches match these filters. <button class="btn" data-reset>Reset filters</button></p>`}`;
+  box._routine = routine;
+}
+$('#stretches').addEventListener('click', e => {
+  const t = e.target;
+  const pos = t.closest('[data-pos]'), ne = t.closest('[data-noeq]'), pl = t.closest('[data-play]'), ro = t.closest('[data-routine]'), rs = t.closest('[data-reset]');
+  if (pos) { state.pos = pos.dataset.pos; save(); renderStretches(); }
+  else if (ne) { state.noEq = !state.noEq; save(); renderStretches(); }
+  else if (rs) { state.pos = 'All'; state.noEq = false; save(); renderStretches(); }
+  else if (pl) startRoutine([STRETCHES.find(s => s.id === pl.dataset.play)]);
+  else if (t.closest('[data-anim]')) playToon(t.closest('[data-anim]'));
+  else if (ro) startRoutine($('#stretches')._routine.list);
+});
+$('#stretches').addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const c = e.target.closest('.st');
+  setPreview(c ? STRETCHES.find(s => s.id === c.dataset.id) : null);
+});
+$('#stretches').addEventListener('pointerleave', () => setPreview(null));
+$('#stretches').addEventListener('click', e => {
+  // on touch screens, opening a card's steps previews it on the body
+  const sm = e.target.closest('summary');
+  if (!sm || matchMedia('(hover: hover)').matches) return;
+  const d = sm.parentElement, c = sm.closest('.st');
+  requestAnimationFrame(() => setPreview(d.open ? STRETCHES.find(s => s.id === c.dataset.id) : null));
+});
+document.addEventListener('pointerdown', e => {
+  if (state.preview && e.pointerType !== 'mouse' && !e.target.closest('.st')) setPreview(null);
+}, true);
+
+// ---------- jump button ----------
+const jump = $('#jump');
+function jumpCheck() {
+  const head = $('#st-head');
+  if (!head || !state.sel.size) { jump.hidden = true; return; }
+  const n = ranked().length;
+  const r = head.getBoundingClientRect();
+  jump.hidden = !(r.top > innerHeight - 30) || !$('#rt').hidden;
+  jump.innerHTML = `${n} stretch${n === 1 ? '' : 'es'} ${IC.down}`;
+}
+jump.addEventListener('click', () => $('#st-head').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'start'}));
+addEventListener('scroll', jumpCheck, {passive: true});
+addEventListener('resize', jumpCheck);
+
+// ---------- routine ----------
+const rt = {segs: [], i: 0, phase: 'prep', remaining: 0, total: 1, running: false, timer: null, ac: null, lock: null};
+function startRoutine(list) {
+  if (!list || !list.length) return;
+  rt.segs = [];
+  for (const st of list) {
+    if (st.sides) { rt.segs.push({st, side: 'Right side', prep: 5}); rt.segs.push({st, side: 'Left side', prep: 3}); }
+    else rt.segs.push({st, side: st.id === 'cat-cow' ? 'Flow' : 'Both sides', prep: 5});
+  }
+  rt.list = list;
+  try { rt.ac = rt.ac || new (window.AudioContext || window.webkitAudioContext)(); rt.ac.resume && rt.ac.resume(); } catch (e) { rt.ac = null; }
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').then(l => rt.lock = l).catch(() => {}); } catch (e) {}
+  $('#rt').hidden = false; jump.hidden = true;
+  document.documentElement.style.overflow = 'hidden';
+  rt.running = true;
+  goSeg(0);
+  clearInterval(rt.timer);
+  let last = performance.now();
+  rt.timer = setInterval(() => {
+    const now = performance.now(), dt = (now - last) / 1000; last = now; rt.upd = now;
+    if (!rt.running || rt.phase === 'done') return;
+    rt.remaining -= dt;
+    if (rt.remaining <= 0) {
+      if (rt.phase === 'prep') { rt.phase = 'hold'; rt.remaining = rt.total = rt.segs[rt.i].st.hold; beep(880); renderRt(); }
+      else { beep(620); if (rt.i + 1 >= rt.segs.length) finish(); else goSeg(rt.i + 1); }
+    } else updRing();
+  }, 100);
+  $('#rt-play').focus();
+  cancelAnimationFrame(rt.raf);
+  let lastK = -1, lastKey = '';
+  const tick = now => {
+    if ($('#rt').hidden) return;
+    const box = $('#rt-toon svg');
+    if (box && rt.phase !== 'done') {
+      const seg = rt.segs[rt.i];
+      let k = 1;
+      if (rt.phase === 'prep') {
+        const rem = rt.remaining - (rt.running ? (now - (rt.upd || now)) / 1000 : 0);
+        const el = rt.total - rem;
+        k = reduceMotion ? 1 : easeIO(Math.max(0, Math.min(1, (el - .5) / Math.max(.8, rt.total - 1.3))));
+      }
+      const key = seg.st.id + rt.i;
+      if (key !== lastKey || Math.abs(k - lastK) > .002) { box.innerHTML = toonInner(seg.st.id, k); lastK = k; lastKey = key; }
+    }
+    rt.raf = requestAnimationFrame(tick);
+  };
+  rt.raf = requestAnimationFrame(tick);
+}
+function goSeg(i) {
+  rt.i = Math.max(0, Math.min(i, rt.segs.length - 1));
+  rt.phase = 'prep'; rt.remaining = rt.total = rt.segs[rt.i].prep; rt.upd = performance.now();
+  renderRt();
+}
+function finish() {
+  rt.phase = 'done';
+  $('#rt-count').textContent = 'Done';
+  $('#rt-bar').innerHTML = rt.segs.map(() => '<i class="done"></i>').join('');
+  const mins = Math.max(1, Math.round(rt.segs.reduce((t, s) => t + s.st.hold, 0) / 60));
+  $('#rt-main').innerHTML = `<div class="rt-done"><div class="rt-side">Routine complete</div><h2>Nice work.</h2><p>${rt.list.length} stretch${rt.list.length > 1 ? 'es' : ''}, about ${mins} min of holds.</p><button class="btn primary" id="rt-again">Run it again</button></div>`;
+  $('#rt-play').hidden = $('#rt-next').hidden = true;
+  $('#rt-prev').textContent = 'Back';
+}
+const swapLR = s => s.replace(/\b(right|left|Right|Left)\b/g, w => ({right:'left',left:'right',Right:'Left',Left:'Right'})[w]);
+function renderRt() {
+  const seg = rt.segs[rt.i], st = seg.st;
+  $('#rt-play').hidden = $('#rt-next').hidden = false;
+  $('#rt-count').textContent = `${rt.i + 1} / ${rt.segs.length}`;
+  $('#rt-bar').innerHTML = rt.segs.map((_, k) => `<i class="${k < rt.i ? 'done' : k === rt.i ? 'cur' : ''}"></i>`).join('');
+  const C = 2 * Math.PI * 52;
+  $('#rt-main').innerHTML = `<div class="rt-side">${seg.side}</div>
+    <h2 id="rt-name">${esc(st.name)}</h2>
+    <div class="rt-vis"><div class="rt-toon${seg.side === 'Left side' ? ' mirror' : ''}" id="rt-toon">${toonSVG(st.id, rt.phase === 'prep' ? 0 : 1, 'How to do the ' + st.name)}</div><div class="rt-ring ${rt.phase}"><svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="prog" id="rt-prog" cx="60" cy="60" r="52" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
+      <div class="rt-num"><span id="rt-sec">${Math.ceil(rt.remaining)}</span><small>${rt.phase === 'prep' ? 'Get set' : 'Hold'}</small></div></div></div>
+    <ol class="rt-steps">${st.steps.map(s => `<li>${esc(seg.side === 'Left side' ? swapLR(s) : s)}</li>`).join('')}</ol>
+    <p class="rt-feel"><b>Feel it:</b> ${esc(seg.side === 'Left side' ? swapLR(st.feel) : st.feel)}</p>`;
+  $('#rt-play').textContent = rt.running ? 'Pause' : 'Resume';
+  updRing();
+}
+function updRing() {
+  const p = $('#rt-prog'), s = $('#rt-sec'); if (!p) return;
+  const C = 2 * Math.PI * 52;
+  p.setAttribute('stroke-dashoffset', C * (1 - Math.max(0, rt.remaining) / rt.total));
+  s.textContent = Math.max(0, Math.ceil(rt.remaining));
+}
+function beep(f) {
+  if (!rt.ac) return;
+  try {
+    const o = rt.ac.createOscillator(), g = rt.ac.createGain(), t = rt.ac.currentTime;
+    o.frequency.value = f; o.type = 'sine';
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + .02); g.gain.exponentialRampToValueAtTime(0.0001, t + .25);
+    o.connect(g).connect(rt.ac.destination); o.start(t); o.stop(t + .3);
+  } catch (e) {}
+}
+function closeRt() {
+  clearInterval(rt.timer); rt.running = false; cancelAnimationFrame(rt.raf);
+  try { rt.lock && rt.lock.release(); } catch (e) {} rt.lock = null;
+  $('#rt').hidden = true; document.documentElement.style.overflow = '';
+  jumpCheck();
+}
+$('#rt-close').addEventListener('click', closeRt);
+$('#rt-play').addEventListener('click', () => { rt.running = !rt.running; $('#rt-play').textContent = rt.running ? 'Pause' : 'Resume'; });
+$('#rt-next').addEventListener('click', () => { if (rt.i + 1 >= rt.segs.length) finish(); else goSeg(rt.i + 1); });
+$('#rt-prev').addEventListener('click', () => { if (rt.phase === 'done') { goSeg(rt.segs.length - 1); return; } goSeg(rt.remaining < rt.total - 2 ? rt.i : rt.i - 1); });
+$('#rt-main').addEventListener('click', e => { if (e.target.id === 'rt-again') { rt.running = true; goSeg(0); } });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#rt').hidden) closeRt();
+  else if (q.value) { q.value = ''; renderResults(); }
+  else if (state.focus) focusGroup(null);
+});
+
+// ---------- boot ----------
+setLayer(state.layer);
+renderNav(); renderSel(); renderStretches(); paint(); readout();
+requestAnimationFrame(jumpCheck);
+})();
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
