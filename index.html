@@ -326,6 +326,11 @@ details ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px;font-size:14p
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 <style>body{padding-top:calc(14px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}</style>
+<style>
+.inst{height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);font:700 14px/1 var(--font-body);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.inst-tip{flex-basis:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.5}
+.inst-tip ol{margin:4px 0 0;padding-left:20px}
+</style>
 </head>
 <body>
 
@@ -336,6 +341,21 @@ details ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px;font-size:14p
   <div>
     <h1>Stretch Map</h1>
     <p>Tap a muscle group to zoom in, then pick the exact muscles. Stretches rank themselves as you go.</p>
+  </div>
+  <button class="inst" id="installBtn" type="button" hidden>&#10515; Install app</button>
+  <div class="inst-tip" id="installTip" hidden>
+    <div data-os="ios"><b>Install on iPhone or iPad</b>
+    <ol><li>Tap <b>Share</b>. In Chrome it's at the right of the address bar; in Safari it's in the toolbar.</li>
+    <li>Choose <b>Add to Home Screen</b> (you may need to tap <b>More</b> first).</li>
+    <li>Leave <b>Open as Web App</b> switched on, then tap <b>Add</b>.</li></ol></div>
+    <div data-os="android"><b>Install on Android</b>
+    <ol><li>Tap Chrome's <b>&#8942;</b> menu (top right).</li>
+    <li>Tap <b>Add to home screen</b> or <b>Install app</b>, then choose <b>Install</b>, not <b>Create shortcut</b>.</li>
+    <li>If the menu says <b>Open app</b> instead, an old copy is still installed. Uninstall Stretch Map in <b>Settings &rarr; Apps</b>, reopen this page, and try again.</li></ol></div>
+    <div data-os="desktop"><b>Install on a computer</b>
+    <ol><li>In Chrome, open <b>&#8942; &rarr; Cast, save and share &rarr; Install page as app</b>.</li>
+    <li>Or click the install icon at the right end of the address bar.</li></ol></div>
+    Open it from the new icon, and it runs in its own window without the browser.
   </div>
 </header>
 
@@ -2053,6 +2073,27 @@ requestAnimationFrame(jumpCheck);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
+</script>
+<script>
+(() => {
+  const btn = document.getElementById('installBtn'), tip = document.getElementById('installTip');
+  const standalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+  const ua = navigator.userAgent;
+  const os = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'ios' : /Android/.test(ua) ? 'android' : 'desktop';
+  tip.querySelectorAll('[data-os]').forEach(d => { d.hidden = d.dataset.os !== os; });
+  let deferred = null;
+  const refresh = () => { btn.hidden = standalone(); if (btn.hidden) tip.hidden = true; };
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; refresh(); });
+  addEventListener('appinstalled', () => { deferred = null; refresh(); });
+  btn.addEventListener('click', async () => {
+    if (deferred) {
+      const d = deferred; deferred = null;
+      try { d.prompt(); const c = await d.userChoice; if (c && c.outcome === 'accepted') return; } catch (e) {}
+    }
+    tip.hidden = !tip.hidden;
+  });
+  refresh();
+})();
 </script>
 </body>
 </html>

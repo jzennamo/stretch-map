@@ -1,5 +1,5 @@
 /* Muscle Stretch Map service worker: works offline once it has loaded one time. */
-const VERSION = 'stretch-map-v1';
+const VERSION = 'stretch-map-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
