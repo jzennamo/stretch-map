@@ -219,6 +219,17 @@ h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spaci
 .routine-cta b{font-family:var(--font-display);font-size:16px;display:block}
 .routine-cta span{font-size:13px;opacity:.8}
 .routine-cta .btn{background:var(--accent);color:var(--on-accent);border-color:var(--accent);height:40px;padding:0 18px}
+.rt-opts{flex-basis:100%;display:flex;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--surface) 22%,transparent)}
+.rt-len{display:flex;flex-direction:column;gap:2px;font-size:13px}
+.rt-len .lrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.rt-len b{font-family:var(--font-body);font-size:13px;display:inline;font-variant-numeric:tabular-nums}
+.rt-len input{width:100%;accent-color:var(--accent);height:28px;margin:0}
+.rt-len .auto{font-size:12.5px;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:2px;opacity:.85}
+.rt-optrow{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13px}
+.rt-optrow>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.routine-cta .seg{background:transparent;border-color:color-mix(in srgb,var(--surface) 30%,transparent)}
+.routine-cta .seg button{color:var(--surface);opacity:.8;height:28px;padding:0 10px}
+.routine-cta .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);opacity:1}
 
 .slist{display:grid;gap:10px}
 @media (min-width:1180px){.slist{grid-template-columns:1fr 1fr;align-items:start}}
@@ -318,6 +329,7 @@ details ol{margin:8px 0 6px;padding-left:20px;display:grid;gap:4px;font-size:14p
 .rt-num small{font-size:13px;color:var(--muted);font-weight:600;margin-top:4px}
 .rt-steps{text-align:left;margin:4px 0 0;padding-left:22px;display:grid;gap:4px;font-size:15px;max-width:52ch}
 .rt-feel{font-size:13.5px;color:var(--muted);margin:0;max-width:52ch}
+.rt-more{height:34px;padding:0 14px;font-size:13px}
 .rt-ctl{display:flex;gap:10px;justify-content:center;max-width:640px;width:100%;margin:0 auto}
 .rt-ctl .btn{height:48px;padding:0 20px;font-size:15px;flex:1;max-width:180px}
 .rt-done{display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -1373,7 +1385,7 @@ const ALIASES = {
 };
 
 // ---------- state ----------
-const state = {sel: new Set(), focus: null, layer: 'surface', pos: 'All', noEq: false, preview: null, hover: null, last: null};
+const state = {sel: new Set(), focus: null, layer: 'surface', pos: 'All', noEq: false, mins: null, fill: 'more', prep: 'standard', preview: null, hover: null, last: null};
 try {
   const o = JSON.parse(localStorage.getItem('stretchmap.v1') || 'null');
   if (o) {
@@ -1381,10 +1393,13 @@ try {
     if (o.layer === 'deep') state.layer = 'deep';
     if (['All','Standing','Seated','Floor'].includes(o.pos)) state.pos = o.pos;
     state.noEq = !!o.noEq;
+    if (o.mins >= 1 && o.mins <= 60) state.mins = Math.round(o.mins);
+    if (['more', 'repeat'].includes(o.fill)) state.fill = o.fill;
+    if (['quick', 'standard', 'relaxed'].includes(o.prep)) state.prep = o.prep;
   }
 } catch (e) {}
 function save() {
-  try { localStorage.setItem('stretchmap.v1', JSON.stringify({sel: [...state.sel], layer: state.layer, pos: state.pos, noEq: state.noEq})); } catch (e) {}
+  try { localStorage.setItem('stretchmap.v1', JSON.stringify({sel: [...state.sel], layer: state.layer, pos: state.pos, noEq: state.noEq, mins: state.mins, fill: state.fill, prep: state.prep})); } catch (e) {}
 }
 
 function el(tag, attrs, parent) {
@@ -1829,6 +1844,42 @@ function smartRoutine() {
   const covered = [...state.sel].filter(x => !U.has(x)).length;
   return {list: chosen, covered};
 }
+// Setup time before a hold: [first side or both sides, switching sides]
+const PREP = {quick: [8, 5], standard: [12, 6], relaxed: [20, 10]};
+const prepFor = () => PREP[state.prep] || PREP.standard;
+function stSecs(st) { const [a, b] = prepFor(); return st.sides ? a + b + 2 * st.hold : a + st.hold; }
+// The smart routine stretched or trimmed toward the session length. Extra time goes to the
+// next-best stretches for the targets (then repeats once those run out) or to repeat rounds.
+function planRoutine() {
+  const base = smartRoutine().list;
+  const items = base.slice();
+  let secs = items.reduce((t, st) => t + stSecs(st), 0);
+  const target = state.mins ? state.mins * 60 : 0;
+  if (target && items.length) {
+    while (items.length > 1 && secs > target && Math.abs(secs - stSecs(items[items.length - 1]) - target) <= secs - target)
+      secs -= stSecs(items.pop());
+    const fresh = state.fill === 'more' ? ranked().map(x => x.st).filter(st => !items.includes(st)) : [];
+    const cycle = state.fill === 'more' ? null : items.slice();
+    let k = 0;
+    while (items.length < 60) {
+      const next = fresh.length ? fresh[0] : (cycle || items)[k % (cycle || items).length];
+      if (Math.abs(secs + stSecs(next) - target) >= Math.abs(secs - target)) break;
+      if (fresh.length) fresh.shift(); else k++;
+      items.push(next); secs += stSecs(next);
+    }
+  }
+  const U = new Set(state.sel);
+  for (const st of items) { st.p.forEach(x => U.delete(x)); st.s.forEach(x => { if (!HAS_PRIMARY.has(x)) U.delete(x); }); }
+  const counts = {};
+  items.forEach(st => counts[st.id] = (counts[st.id] || 0) + 1);
+  return {list: items, secs, covered: state.sel.size - U.size, unique: Object.keys(counts).length,
+          rounds: Math.max(1, ...Object.values(counts)), baseSecs: base.reduce((t, st) => t + stSecs(st), 0)};
+}
+const lenLabel = r => state.mins ? `${state.mins} min` : 'fits your targets';
+function routineSummary(r) {
+  const n = r.unique;
+  return `${n} stretch${n > 1 ? 'es' : ''}${r.rounds > 1 ? `, up to ${r.rounds} rounds,` : ''} ${n > 1 || r.rounds > 1 ? 'cover' : 'covers'} ${r.covered === state.sel.size ? (state.sel.size === 1 ? 'your target' : `all ${state.sel.size} targets`) : `${r.covered} of your ${state.sel.size} targets`} · about ${Math.max(1, Math.round(r.secs / 60))} min`;
+}
 function holdLabel(st) { return `${st.hold} s${st.sides ? ' each side' : ''}`; }
 const LV = ['', 'Gentle', 'Moderate', 'Advanced'];
 function thumb(st) {
@@ -1897,15 +1948,22 @@ function renderStretches() {
   const box = $('#stretches');
   const list = ranked();
   const has = state.sel.size > 0;
-  const routine = has ? smartRoutine() : null;
-  const secs = routine ? routine.list.reduce((t, s) => t + (s.sides ? 2 : 1) * s.hold + 5 + (s.sides ? 3 : 0), 0) : 0;
+  const routine = has ? planRoutine() : null;
   box.innerHTML = `<div class="bhead" id="st-head"><h2>${has ? 'Best matches' : 'Stretch library'}</h2><span class="note">${list.length} stretch${list.length === 1 ? '' : 'es'}${has ? ', best first' : ', head to toe'}</span></div>
     <div class="filters" role="group" aria-label="Filters">
       <div class="seg" role="group" aria-label="Position">${['All', 'Standing', 'Seated', 'Floor'].map(p => `<button data-pos="${p}" aria-pressed="${state.pos === p}">${p}</button>`).join('')}</div>
       <button class="toggle" data-noeq aria-pressed="${state.noEq}">No equipment</button>
     </div>
     <p class="tlegend" aria-label="How to read the animations"><span><i style="background:var(--stretch)"></i>where you feel it</span><span><i style="background:var(--fig-far)"></i>far-side limbs</span><span><i class="dash"></i>mat, seen from above</span><span><i style="background:var(--strap);height:4px"></i>strap or towel</span></p>
-    ${routine && routine.list.length ? `<div class="routine-cta"><div class="t"><b>Guided routine</b><span>${routine.list.length} stretch${routine.list.length > 1 ? 'es cover' : ' covers'} ${routine.covered === state.sel.size ? (state.sel.size === 1 ? 'your target' : `all ${state.sel.size} targets`) : `${routine.covered} of your ${state.sel.size} targets`} · about ${Math.max(1, Math.round(secs / 60))} min</span></div><button class="btn" data-routine>Start routine</button></div>` : ''}
+    ${routine && routine.list.length ? `<div class="routine-cta"><div class="t"><b>Guided routine</b><span id="rt-sum">${routineSummary(routine)}</span></div><button class="btn" data-routine>Start routine</button>
+      <div class="rt-opts">
+        <label class="rt-len"><span class="lrow"><span>Session length <b id="rt-len-v">${lenLabel(routine)}</b></span>${state.mins ? '<button type="button" class="auto" data-auto>Just my targets</button>' : ''}</span>
+          <input type="range" id="rt-len" min="2" max="45" step="1" value="${state.mins || Math.max(2, Math.round(routine.baseSecs / 60))}" aria-describedby="rt-sum"></label>
+        <div class="rt-optrow">
+          <div><span>Extra time</span><div class="seg" role="group" aria-label="Fill extra time with">${[['more', 'More stretches'], ['repeat', 'Repeat']].map(([v, l]) => `<button data-fill="${v}" aria-pressed="${state.fill === v}">${l}</button>`).join('')}</div></div>
+          <div><span>Setup time</span><div class="seg" role="group" aria-label="Setup time">${[['quick', 'Quick'], ['standard', 'Standard'], ['relaxed', 'Relaxed']].map(([v, l]) => `<button data-prepset="${v}" aria-pressed="${state.prep === v}" title="${PREP[v][0]} s to get in position, ${PREP[v][1]} s to switch sides">${l}</button>`).join('')}</div></div>
+        </div>
+      </div></div>` : ''}
     ${list.length ? `<div class="slist">${list.map(card).join('')}</div>` : `<p class="empty">No stretches match these filters. <button class="btn" data-reset>Reset filters</button></p>`}`;
   box._routine = routine;
 }
@@ -1917,7 +1975,23 @@ $('#stretches').addEventListener('click', e => {
   else if (rs) { state.pos = 'All'; state.noEq = false; save(); renderStretches(); }
   else if (pl) startRoutine([STRETCHES.find(s => s.id === pl.dataset.play)]);
   else if (t.closest('[data-anim]')) playToon(t.closest('[data-anim]'));
-  else if (ro) startRoutine($('#stretches')._routine.list);
+  else if (ro) startRoutine(planRoutine().list);
+  else if (t.closest('[data-fill]')) { state.fill = t.closest('[data-fill]').dataset.fill; save(); renderStretches(); }
+  else if (t.closest('[data-prepset]')) { state.prep = t.closest('[data-prepset]').dataset.prepset; save(); renderStretches(); }
+  else if (t.closest('[data-auto]')) { state.mins = null; save(); renderStretches(); }
+});
+// session length: update the summary live while dragging, re-render once it's let go
+$('#stretches').addEventListener('input', e => {
+  if (e.target.id !== 'rt-len') return;
+  state.mins = +e.target.value;
+  const r = planRoutine();
+  $('#rt-len-v').textContent = lenLabel(r);
+  $('#rt-sum').textContent = routineSummary(r);
+});
+$('#stretches').addEventListener('change', e => {
+  if (e.target.id !== 'rt-len') return;
+  save(); renderStretches();
+  const len = $('#rt-len'); if (len) len.focus();
 });
 $('#stretches').addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
@@ -1955,9 +2029,11 @@ const rt = {segs: [], i: 0, phase: 'prep', remaining: 0, total: 1, running: fals
 function startRoutine(list) {
   if (!list || !list.length) return;
   rt.segs = [];
+  const [first, swap] = prepFor(), seen = {};
   for (const st of list) {
-    if (st.sides) { rt.segs.push({st, side: 'Right side', prep: 5}); rt.segs.push({st, side: 'Left side', prep: 3}); }
-    else rt.segs.push({st, side: st.id === 'cat-cow' ? 'Flow' : 'Both sides', prep: 5});
+    const round = seen[st.id] = (seen[st.id] || 0) + 1;
+    if (st.sides) { rt.segs.push({st, round, side: 'Right side', prep: first}); rt.segs.push({st, round, side: 'Left side', prep: swap}); }
+    else rt.segs.push({st, round, side: st.id === 'cat-cow' ? 'Flow' : 'Both sides', prep: first});
   }
   rt.list = list;
   try { rt.ac = rt.ac || new (window.AudioContext || window.webkitAudioContext)(); rt.ac.resume && rt.ac.resume(); } catch (e) { rt.ac = null; }
@@ -2008,7 +2084,8 @@ function finish() {
   $('#rt-count').textContent = 'Done';
   $('#rt-bar').innerHTML = rt.segs.map(() => '<i class="done"></i>').join('');
   const mins = Math.max(1, Math.round(rt.segs.reduce((t, s) => t + s.st.hold, 0) / 60));
-  $('#rt-main').innerHTML = `<div class="rt-done"><div class="rt-side">Routine complete</div><h2>Nice work.</h2><p>${rt.list.length} stretch${rt.list.length > 1 ? 'es' : ''}, about ${mins} min of holds.</p><button class="btn primary" id="rt-again">Run it again</button></div>`;
+  const n = new Set(rt.list).size, rounds = Math.max(...rt.segs.map(s => s.round));
+  $('#rt-main').innerHTML = `<div class="rt-done"><div class="rt-side">Routine complete</div><h2>Nice work.</h2><p>${n} stretch${n > 1 ? 'es' : ''}${rounds > 1 ? `, up to ${rounds} rounds` : ''}, about ${mins} min of holds.</p><button class="btn primary" id="rt-again">Run it again</button></div>`;
   $('#rt-play').hidden = $('#rt-next').hidden = true;
   $('#rt-prev').textContent = 'Back';
 }
@@ -2019,10 +2096,11 @@ function renderRt() {
   $('#rt-count').textContent = `${rt.i + 1} / ${rt.segs.length}`;
   $('#rt-bar').innerHTML = rt.segs.map((_, k) => `<i class="${k < rt.i ? 'done' : k === rt.i ? 'cur' : ''}"></i>`).join('');
   const C = 2 * Math.PI * 52;
-  $('#rt-main').innerHTML = `<div class="rt-side">${seg.side}</div>
+  $('#rt-main').innerHTML = `<div class="rt-side">${seg.round > 1 ? `Round ${seg.round} · ` : ''}${seg.side}</div>
     <h2 id="rt-name">${esc(st.name)}</h2>
     <div class="rt-vis"><div class="rt-toon${seg.side === 'Left side' ? ' mirror' : ''}" id="rt-toon">${toonSVG(st.id, rt.phase === 'prep' ? 0 : 1, 'How to do the ' + st.name)}</div><div class="rt-ring ${rt.phase}"><svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="prog" id="rt-prog" cx="60" cy="60" r="52" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
       <div class="rt-num"><span id="rt-sec">${Math.ceil(rt.remaining)}</span><small>${rt.phase === 'prep' ? 'Get set' : 'Hold'}</small></div></div></div>
+    <button class="btn rt-more" id="rt-more" aria-label="Add 10 seconds">+10 s</button>
     <ol class="rt-steps">${st.steps.map(s => `<li>${esc(seg.side === 'Left side' ? swapLR(s) : s)}</li>`).join('')}</ol>
     <p class="rt-feel"><b>Feel it:</b> ${esc(seg.side === 'Left side' ? swapLR(st.feel) : st.feel)}</p>`;
   $('#rt-play').textContent = rt.running ? 'Pause' : 'Resume';
@@ -2053,7 +2131,10 @@ $('#rt-close').addEventListener('click', closeRt);
 $('#rt-play').addEventListener('click', () => { rt.running = !rt.running; $('#rt-play').textContent = rt.running ? 'Pause' : 'Resume'; });
 $('#rt-next').addEventListener('click', () => { if (rt.i + 1 >= rt.segs.length) finish(); else goSeg(rt.i + 1); });
 $('#rt-prev').addEventListener('click', () => { if (rt.phase === 'done') { goSeg(rt.segs.length - 1); return; } goSeg(rt.remaining < rt.total - 2 ? rt.i : rt.i - 1); });
-$('#rt-main').addEventListener('click', e => { if (e.target.id === 'rt-again') { rt.running = true; goSeg(0); } });
+$('#rt-main').addEventListener('click', e => {
+  if (e.target.id === 'rt-again') { rt.running = true; goSeg(0); }
+  else if (e.target.id === 'rt-more' && rt.phase !== 'done') { rt.remaining += 10; rt.total += 10; updRing(); }
+});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('#rt').hidden) closeRt();

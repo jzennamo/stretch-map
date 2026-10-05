@@ -1,6 +1,6 @@
 # Muscle Stretch Map
 
-Tap muscles on a front and back body map, deep hip rotators included, to get stretches that target them. Each stretch has a looping how-to animation, and you can run a guided routine with timers. There are also presets like "After a long hike" and "Day after heavy lifting."
+Tap muscles on a front and back body map, deep hip rotators included, to get stretches that target them. Each stretch has a looping how-to animation, and you can run a guided routine with timers: set how long the session should be, fill extra time with more stretches or repeat rounds, and choose how much setup time you get before each hold. There are also presets like "After a long hike" and "Day after heavy lifting."
 
 It's one static page with no build step and no server, so GitHub Pages can host it as is. After it loads once it works offline, and you can add it to your phone's home screen.
 
